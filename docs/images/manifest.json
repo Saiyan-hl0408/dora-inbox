@@ -1,0 +1,42 @@
+{
+  "date": "2026-10-22",
+  "images": [
+    {
+      "file": "docs/images/detail-mockup.png",
+      "sha256": "cfea20103bef431f3aa8cafb4eb6569d2788a52ab84313acf0c3cd2c78bb19a6",
+      "width": 780,
+      "height": 1732,
+      "metadataKeys": [],
+      "kind": "design mockup only, no real account or valid QR code",
+      "source": "approved editable review-pending components, neutral brand/product placeholders, rendered for public documentation"
+    },
+    {
+      "file": "docs/images/home-mockup.png",
+      "sha256": "bffcc64e94011c5831785975259e94f1c56aeb5b81f3aa99fbd3da9b48ec4dc9",
+      "width": 780,
+      "height": 1732,
+      "metadataKeys": [],
+      "kind": "design mockup only, no real account or valid QR code",
+      "source": "approved editable review-pending components, neutral brand/product placeholders, rendered for public documentation"
+    },
+    {
+      "file": "docs/images/identity-mockup.png",
+      "sha256": "77372bc9135a22f40f2dfa06b1f0c28fe1073181cd78211e7b37edec88ab1e40",
+      "width": 1619,
+      "height": 972,
+      "metadataKeys": [],
+      "kind": "design mockup only, no real account or valid QR code",
+      "source": "approved full-ui-v2-functional/06-identity.png unchanged"
+    },
+    {
+      "file": "docs/images/my-mockup.png",
+      "sha256": "41a28d4b7e6949776103a06bba96d20b139dfd8cc73a70f57d937a5096c8eb2c",
+      "width": 780,
+      "height": 1732,
+      "metadataKeys": [],
+      "kind": "design mockup only, no real account or valid QR code",
+      "source": "approved editable review-pending components, neutral brand/product placeholders, rendered for public documentation"
+    }
+  ],
+  "scope": "four core feature categories only; no original runtime screenshots or full gallery"
+}

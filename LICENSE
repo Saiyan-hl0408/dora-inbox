@@ -1,0 +1,24 @@
+ParcelHub / Dora Inbox source snapshot — licensing entry point
+Copyright (c) 2026 Saiyan-hl0408, only for project contributions the licensor owns
+or is otherwise authorized to license. All other rights remain with their owners.
+
+This is a mixed-license, source-available repository, not an OSI-open-source
+release of the entire application. It is NOT licensed as a whole under MIT.
+
+1. Identifiable project contributions, excluding all third-party expression,
+   are offered under LICENSES/LicenseRef-ParcelHub-Noncommercial-1.0.txt.
+   Commercial use of those contributions requires prior explicit written
+   permission from the relevant rights holder. Permission may be free or paid.
+2. Upstream material remains under its original license, including commercial
+   permissions. This project's noncommercial condition does not apply to rights
+   independently obtained under those upstream licenses.
+3. In mixed/derived files, the rule in (1) applies only to licensable new project
+   expression, never to upstream expression. A new path is not proof of ownership.
+4. Consult LICENSE_SCOPE.md, docs/provenance-inventory.json and
+   THIRD_PARTY_NOTICES.md before reusing or redistributing any component.
+5. This repository grants no rights in platform services, accounts, data, brands,
+   or third-party material beyond the rights their owners actually grant.
+
+Commercial permission contact: https://github.com/Saiyan-hl0408
+Request procedure: COMMERCIAL-LICENSING.md
+The Chinese custom license text is authoritative for the project grant.

@@ -1,0 +1,8 @@
+<resources>
+    <style name="Theme.ParcelHub.IdentityDialog" parent="Theme.ParcelHub.Light">
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:windowCloseOnTouchOutside">false</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="colorPrimary">#0077F5</item>
+    </style>
+</resources>

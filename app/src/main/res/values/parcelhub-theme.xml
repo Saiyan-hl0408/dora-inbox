@@ -1,0 +1,22 @@
+<resources>
+    <style name="Theme.ParcelHub.Light" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">#0077F5</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">#E8F3FF</item>
+        <item name="colorOnPrimaryContainer">#172B4D</item>
+        <item name="colorSecondary">#52667E</item>
+        <item name="colorSurface">#FFFFFF</item>
+        <item name="colorOnSurface">#172B4D</item>
+        <item name="colorOnSurfaceVariant">#64748B</item>
+        <item name="android:colorBackground">#EDF7FF</item>
+        <item name="android:windowBackground">#EDF7FF</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="fontFamily">sans-serif</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="surfaceBackground">@drawable/theme_surface_plain</item>
+    </style>
+</resources>
