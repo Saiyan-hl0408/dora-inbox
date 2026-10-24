@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-22",
+  "date": "2026-10-25",
   "scope": "Resolved source snapshot releaseRuntimeClasspath and available POM/embedded license evidence; fixed dependency declarations matched against the existing protected build. This is not an APK security or legal ownership audit.",
   "protectedBuildDependencyDeclarationsMatch": true,
   "components": [

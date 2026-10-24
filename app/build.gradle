@@ -13,16 +13,18 @@ android {
         applicationId "com.songoku.parcelhub.source"
         minSdk 29
         targetSdk 36
-        versionCode 27
-        versionName "0.9.7-source"
+        versionCode 30
+        versionName "0.9.9-source"
     }
 
     buildTypes {
         debug {
             buildConfigField 'boolean', 'ALLOW_TEST_SCREENSHOTS', 'false'
+            buildConfigField 'boolean', 'ENABLE_DOUYIN', 'false'
         }
         release {
             buildConfigField 'boolean', 'ALLOW_TEST_SCREENSHOTS', 'false'
+            buildConfigField 'boolean', 'ENABLE_DOUYIN', 'false'
             minifyEnabled false
         }
     }

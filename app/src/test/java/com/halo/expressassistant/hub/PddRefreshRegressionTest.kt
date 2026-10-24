@@ -38,6 +38,6 @@ class PddRefreshRegressionTest {
     @Test fun returnedPartialOrdersAreReportedAsPartialInsteadOfZeroReadFailure() {
         assertTrue(SyncStatusText.describe("pdd",3,"未到查询边界").startsWith("部分完成"))
         assertTrue(SyncStatusText.describe("pdd",0,"需重新验证").startsWith("失败"))
-        assertTrue(SyncStatusText.describe("jd",3,"失败").startsWith("失败"))
+        assertTrue(SyncStatusText.describe("jd",3,"失败").startsWith("部分完成"))
     }
 }

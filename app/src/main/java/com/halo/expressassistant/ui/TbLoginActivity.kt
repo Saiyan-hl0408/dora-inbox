@@ -10,8 +10,7 @@ import kotlinx.coroutines.*
 
 /** One shared official session, with independently verified orders and station capabilities. */
 class TbLoginActivity : PlatformLoginActivity("taobao") {
-    private val cainiaoOnly get()=intent.getBooleanExtra("cainiao_only",false)
-    override val loginHelpText:String get()="淘宝绑定：验证商城订单后，自动继续检查菜鸟服务；官方要求授权时在当前页完成。\n菜鸟入口：仅检查菜鸟服务，不自动启用订单同步。"
+    override val loginHelpText:String get()="登录淘宝后，自动验证商城订单并继续检查菜鸟取件服务。所有入口使用同一绑定流程；官网要求确认授权时，请在当前页完成。"
     private var ordersVerified=false
     private var cainiaoVerified=false
     private var ordersOnlyCompletion=false
@@ -28,11 +27,10 @@ class TbLoginActivity : PlatformLoginActivity("taobao") {
         state.text="正在准备淘宝登录…"
         sessionScope.launch {CainiaoWebFetcher.sessionMutex.lock();ownsSession=true;action()}
     }
-    override val sessionReady:Boolean get()=(if(cainiaoOnly)cainiaoVerified else ordersVerified && (cainiaoVerified || ordersOnlyCompletion)) && ownerIsCurrent()
+    override val sessionReady:Boolean get()=ordersVerified && (cainiaoVerified || ordersOnlyCompletion) && ownerIsCurrent()
     override val independentlyVerifiedLanding:Boolean get()=sessionReady
-    override fun capabilityStatusText()="淘宝商城订单：${if(ordersVerified)"已验证" else if(cainiaoOnly)"未启用，需从淘宝入口绑定" else "待验证"}\n菜鸟取件服务：${if(cainiaoVerified)"已验证" else if(cainiaoStage || cainiaoOnly)"检查中，必要时需官方授权" else "等待淘宝登录"}\n\n两项共用淘宝账号会话，分别记录验证结果。"
-    override fun initialLoginUrl(defaultUrl:String)=if(cainiaoOnly)CainiaoPickupService.pageUrl(this)
-        else "https://login.m.taobao.com/login.htm?redirectURL=https%3A%2F%2Fh5.m.taobao.com%2Fmlapp%2Folist.html"
+    override fun capabilityStatusText()="淘宝商城订单：${if(ordersVerified)"已验证" else "待验证"}\n菜鸟取件服务：${if(cainiaoVerified)"已验证" else if(cainiaoStage)"检查中，必要时需官方授权" else "等待淘宝登录"}\n\n所有登录入口都验证这两项能力，分别保存实际结果。"
+    override fun initialLoginUrl(defaultUrl:String)="https://login.m.taobao.com/login.htm?redirectURL=https%3A%2F%2Fh5.m.taobao.com%2Fmlapp%2Folist.html"
 
     private fun ownerIsCurrent():Boolean {
         if(ownerCookies.isBlank() || !CookiePairs.sameTaobaoAccount(CookiePairs.parse(ownerCookies),CookiePairs.parse(SessionCookies.current("taobao"))))return false
@@ -42,7 +40,7 @@ class TbLoginActivity : PlatformLoginActivity("taobao") {
         return account.enabled && CookiePairs.sameTaobaoAccount(CookiePairs.parse(ownerCookies),CookiePairs.parse(Store.cookieOf(account.payload)))
     }
     private fun recordCapabilities(cookies:String) {
-        Store.addTbAccount(this,cookies,ordersVerified=ordersVerified,cainiaoVerified=cainiaoVerified,cainiaoOnly=cainiaoOnly)
+        Store.addTbAccount(this,cookies,ordersVerified=ordersVerified,cainiaoVerified=cainiaoVerified,cainiaoOnly=false)
         savedAccountId=Store.accounts(this,"taobao").firstOrNull {
             it.enabled && CookiePairs.sameTaobaoAccount(CookiePairs.parse(cookies),CookiePairs.parse(Store.cookieOf(it.payload)))
         }?.id.orEmpty()
@@ -50,7 +48,7 @@ class TbLoginActivity : PlatformLoginActivity("taobao") {
     override fun saveAuthorizedSession(cookies:String):Intent {
         check(ownerIsCurrent()) {"账号会话已变化，请重新绑定"}
         recordCapabilities(cookies)
-        return (if(cainiaoOnly)Intent().putExtra("cainiao_bound",true) else Intent().putExtra("bound_channel","taobao"))
+        return Intent().putExtra("bound_channel","taobao").putExtra("cainiao_bound",cainiaoVerified)
             .putExtra("cainiao_verified",cainiaoVerified).putExtra("authorized_account_id",savedAccountId)
     }
     override fun onManualLoginCheck(){attemptedAt=0}
@@ -61,7 +59,7 @@ class TbLoginActivity : PlatformLoginActivity("taobao") {
             return
         }
         if(!hasCredentials || sessionReady || verifying || System.currentTimeMillis()-attemptedAt<15000)return
-        if(cainiaoOnly || cainiaoStage){verifyCainiao();return}
+        if(cainiaoStage){verifyCainiao();return}
         val uri=android.net.Uri.parse(web.url.orEmpty())
         if(uri.scheme!="https" || !(uri.host=="taobao.com" || uri.host.orEmpty().endsWith(".taobao.com")) || uri.host.orEmpty().startsWith("login."))return
         verifying=true;attemptedAt=System.currentTimeMillis()
@@ -116,7 +114,7 @@ class TbLoginActivity : PlatformLoginActivity("taobao") {
                 if(!ownerIsCurrent()){verifying=false;state.text="账号已变化，请重新进入绑定。";return@evaluateJavascript}
                 when {
                     raw=="true"->{cainiaoVerified=true;verifying=false;state.text="菜鸟取件服务已验证";checkLoginSession()}
-                    raw=="false" || System.currentTimeMillis()-started>9000->{
+                    raw=="false" || System.currentTimeMillis()-started>16000->{
                         verifying=false
                         state.text=if(ordersVerified)"淘宝已绑定。请在官方页面继续完成菜鸟授权，也可稍后再授权。" else "请完成淘宝登录及菜鸟频道授权。"
                     }

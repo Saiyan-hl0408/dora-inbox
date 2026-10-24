@@ -19,20 +19,20 @@
     },
     {
       "path": "app/src/main/AndroidManifest.xml",
-      "sha256": "981e6aef7b87dbcc070be403768056be061ae828fa45011a7ff779c4aa042021",
+      "sha256": "b2ac57cf7b5d4497464df3fa3093c714dd718a2b736fb967af4f48d90c5c0991",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/AndroidManifest.xml"
     },
     {
       "path": "app/src/main/assets/cainiao-school.js",
-      "sha256": "66659c33d48220e9a4d2e2501e0d4dcdfc17663aa022b1c85841a758253cd8c1",
+      "sha256": "50f096a78a117c0ebee6a8639458be71beb3e2a9efa2d8d20a4b99a2edd9e6cc",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/assets/jdl-mobile.js",
-      "sha256": "57b305891708f57f44f6875e971a7428e448d6b24e4eb5095576441399eeb060",
+      "sha256": "f10109b062859c2e21358df6a27ea1da3adefe420cadc9177795b8d27af33080",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -41,6 +41,15 @@
       "sha256": "b43c417ae99f40d61b87b1fa1e6cbc628f0cf0defcd06edf87b0edc152677a74",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/assets/JsBarcode.code128.min.js",
+      "sha256": "fd92b99bfa11f59e7f3d02ed712de750d24cea8308993970dc47873caeada4f9",
+      "classification": "vendored-third-party",
+      "upstream": "JsBarcode 3.12.3",
+      "license": "MIT",
+      "upstream_commit": "fbe17cbff898ae6a4797b4489bd66034d2ae8e7e",
+      "base_path": "dist/barcodes/JsBarcode.code128.min.js"
     },
     {
       "path": "app/src/main/assets/pdd-qr-entry.js",
@@ -77,6 +86,15 @@
       ]
     },
     {
+      "path": "app/src/main/assets/qrcode-generator.js",
+      "sha256": "55427af126a7fd46b83b7a9557b7ad6a48850b31f2b4a1b32e2289e376dc80b4",
+      "classification": "vendored-third-party",
+      "upstream": "qrcode-generator 2.0.4",
+      "license": "MIT",
+      "upstream_commit": "83b7e8fe3fddd3b0368dbafd6ce56995bd25e3c8",
+      "base_path": "js/dist/qrcode.js"
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/ai/AiClient.kt",
       "sha256": "36767632d0a1cdc95868574422fec4116ee0e9f748d11b7163d63790d47030d0",
       "classification": "upstream-identical",
@@ -95,6 +113,34 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ai/Markdown.kt"
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/api/DouyinOrders.kt",
+      "sha256": "1bcd1504a226bbd8a525c48325c245a6a3de2e670643f42a89189be8fad48b70",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiPassport.kt",
+          "project_coverage": 0.0158,
+          "jaccard": 0.0102,
+          "shared_9grams": 37
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
+          "project_coverage": 0.0158,
+          "jaccard": 0.0099,
+          "shared_9grams": 37
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
+          "project_coverage": 0.0158,
+          "jaccard": 0.0075,
+          "shared_9grams": 37
         }
       ]
     },
@@ -147,13 +193,13 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/api/TbOrderResponse.kt",
-      "sha256": "29d0b8bfeaf57b1ebd0329d1b34c45b07ec7bf95a230a0a83819321d76eb3ec9",
+      "sha256": "b632255312abeec60d93d8d49681c13020061fc645c6af8525ceae33e9bf1ffc",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
-      "sha256": "a98cecfb22e17a8524d652b60e708afccc09ee7c2e101da5a3782caafb9f375f",
+      "sha256": "690fbdf427d15e6ee2f08b678848ada03ffa9c3b611262454220a0e90ff83d54",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
@@ -161,25 +207,31 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
-          "project_coverage": 0.8195,
-          "jaccard": 0.6392,
-          "shared_9grams": 1961
+          "project_coverage": 0.8185,
+          "jaccard": 0.64,
+          "shared_9grams": 1966
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/CaiNiaoGoodsResolver.kt",
-          "project_coverage": 0.1605,
-          "jaccard": 0.1068,
+          "project_coverage": 0.1599,
+          "jaccard": 0.1065,
           "shared_9grams": 384
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
-          "project_coverage": 0.0326,
-          "jaccard": 0.0209,
+          "project_coverage": 0.0325,
+          "jaccard": 0.0208,
           "shared_9grams": 78
         }
       ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/api/TbOrderShipping.kt",
+      "sha256": "c61efe38a3fb45140c6566bce4af09d6e9e999157c3708e0af2505d2031ee043",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/api/TbOrderTime.kt",
@@ -233,7 +285,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/App.kt",
-      "sha256": "9e538193a4b354516f9ad0dc034cb19c4fa45117170b8bb85701117b7ce0c996",
+      "sha256": "34cb932897e795e6e2c3db46d2356b7a83e7a437304eee6c2aae5771cec5df03",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/App.kt",
@@ -241,9 +293,27 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/App.kt",
-          "project_coverage": 0.8919,
-          "jaccard": 0.8462,
-          "shared_9grams": 330
+          "project_coverage": 0.8388,
+          "jaccard": 0.6391,
+          "shared_9grams": 255
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/BackgroundSyncScheduler.kt",
+      "sha256": "5ba67ec0dc9da179dca41a2db8d64c4470193561a84f5e24cd83344c4aeb2b2d",
+      "classification": "cross-path-upstream-derived-with-project-changes",
+      "upstream": "ExpressAssistant",
+      "base_paths": [
+        "app/src/main/java/com/halo/expressassistant/App.kt"
+      ],
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/App.kt",
+          "project_coverage": 0.2119,
+          "jaccard": 0.0682,
+          "shared_9grams": 32
         }
       ]
     },
@@ -296,7 +366,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/data/Express.kt",
-      "sha256": "43c0f8e398411a94d761b8803d886e9642ca0895faaad2b30649d43f93c32341",
+      "sha256": "2f64a3f44d2fdce901a4422ec8bcbe1f4c366ee29a1acc2df9367ccf363acaf9",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/data/Express.kt",
@@ -304,22 +374,28 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/data/Express.kt",
-          "project_coverage": 0.7102,
-          "jaccard": 0.7049,
-          "shared_9grams": 958
+          "project_coverage": 0.6258,
+          "jaccard": 0.6164,
+          "shared_9grams": 945
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/data/Chat.kt",
-          "project_coverage": 0.0141,
-          "jaccard": 0.0124,
+          "project_coverage": 0.0126,
+          "jaccard": 0.0112,
           "shared_9grams": 19
         }
       ]
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/data/PddAccountBinding.kt",
+      "sha256": "821e084fa567ce41dffc38551b889e8c20bb3f8a8839bf99134b083cfdfcc548",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/data/Store.kt",
-      "sha256": "d73a7b5d83ba234a5eaeee4516a5f06657172858d3bb273abbbfad95ce769a56",
+      "sha256": "e38a95f9670f8f7e93d607253bd9f14cf60c8dfcb21eec74823d767e41fbd029",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/data/Store.kt",
@@ -327,22 +403,22 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/data/Store.kt",
-          "project_coverage": 0.9397,
-          "jaccard": 0.9197,
-          "shared_9grams": 7057
+          "project_coverage": 0.8456,
+          "jaccard": 0.8107,
+          "shared_9grams": 6871
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0063,
-          "jaccard": 0.0038,
+          "project_coverage": 0.0058,
+          "jaccard": 0.0036,
           "shared_9grams": 47
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0056,
-          "jaccard": 0.0024,
+          "project_coverage": 0.0052,
+          "jaccard": 0.0023,
           "shared_9grams": 42
         }
       ]
@@ -360,21 +436,103 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/ActiveParcelRefresh.kt",
+      "sha256": "c42d2a32d2dac265543187ee4d3f6fd95b8eff73c463ccffa36f229054b45132",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/DetailActivity.kt",
+          "project_coverage": 0.1429,
+          "jaccard": 0.0027,
+          "shared_9grams": 15
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/BackgroundSyncPolicy.kt",
+      "sha256": "9f0c79e543cab1920d486ed1c0604898031ca613d4e08fd26f32f0faed98c0d8",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/BackgroundSyncRunner.kt",
+      "sha256": "bc9db0fd07484a5c3f98a8c4281771cde94a446a240a88db80eea596ae36d51b",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/TrackingWorker.kt",
+          "project_coverage": 0.0517,
+          "jaccard": 0.039,
+          "shared_9grams": 70
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
+          "project_coverage": 0.0133,
+          "jaccard": 0.0019,
+          "shared_9grams": 18
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/widget/ExpressWidgetProvider.kt",
+          "project_coverage": 0.0126,
+          "jaccard": 0.0035,
+          "shared_9grams": 17
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/BackgroundSyncSettings.kt",
+      "sha256": "dd40034a5a83b18e517859dbfaa422df2e4763353af1ca8d95ddf42115fbb96b",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
+          "project_coverage": 0.03,
+          "jaccard": 0.0036,
+          "shared_9grams": 26
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
+          "project_coverage": 0.0196,
+          "jaccard": 0.0016,
+          "shared_9grams": 17
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
+          "project_coverage": 0.0185,
+          "jaccard": 0.0017,
+          "shared_9grams": 16
+        }
+      ]
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/BindingSyncQueue.kt",
       "sha256": "91cb75d4590ef96a8fb6137f43dc6beaab7460689540b83464654dd937fec4cb",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/CainiaoIdentityBootstrap.kt",
+      "sha256": "e8a2730b1cfac1a562c0915492f1384bde307fa0a01a8e30060e69f1f9853d28",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/CainiaoPickup.kt",
-      "sha256": "739f588d70679605834769ded42dd53586b45153dd06f45a19674bce51eddfe5",
+      "sha256": "5c0e1021565c51b580e5e874b1a149d9f1a2b84224e91c0a383520291cbae084",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "Pickup-Code-Launcher",
           "path": "app/src/main/java/cn/pickup/launcher/Destination.java",
-          "project_coverage": 0.0094,
-          "jaccard": 0.0067,
+          "project_coverage": 0.0091,
+          "jaccard": 0.0066,
           "shared_9grams": 18
         }
       ]
@@ -421,28 +579,28 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/DetailPresentation.kt",
-      "sha256": "80e832bfd39d313d2623f6ddf4948c3c2e3675d4f1760a954032859ea6cb4e00",
+      "sha256": "ed578c0e6b4d75af0b8658421c9b6d80a31675df26c9b5782da5cf8ebc5247c0",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.0267,
+          "project_coverage": 0.0261,
           "jaccard": 0.0062,
           "shared_9grams": 28
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.0257,
-          "jaccard": 0.0054,
+          "project_coverage": 0.0251,
+          "jaccard": 0.0053,
           "shared_9grams": 27
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiDetail.kt",
-          "project_coverage": 0.0181,
-          "jaccard": 0.0115,
+          "project_coverage": 0.0177,
+          "jaccard": 0.0113,
           "shared_9grams": 19
         }
       ]
@@ -476,6 +634,36 @@
       ]
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/DiagnosticShare.kt",
+      "sha256": "27ee78576fc5bd4c70c1ede05fea4c68ead08d35a17abcd1078fb90733cab065",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/DouyinOfficial.kt",
+      "sha256": "fc0009a667890ef089bf3919635260bac9518cf4e13b7f50c5190ff66cb96c80",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/DouyinOrderPayload.kt",
+      "sha256": "90978d9d80657a9372f72155d644e8d97c55f2882b114197611eb3ac82704983",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/DouyinPolicy.kt",
+      "sha256": "4bff00d664facfa39fd363f6876162360a823f5466a2031c4f84dd26da5988b8",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/ForegroundSyncPolicy.kt",
+      "sha256": "06779a6337c7b67a5bc516b049e9a1c9166c03f2950545cb0845499a937a6969",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/GoodsCache.kt",
       "sha256": "8dd26a7cc7b24a404247ef88d9fca63fc5e4a2cbf4f35562c330c62d909854ce",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
@@ -501,90 +689,90 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/HubActivity.kt",
-      "sha256": "dab6cc12042cd23f28c47155093f781afc355285c5e00326980125d30885a7fe",
+      "sha256": "fde675419983631ac00b1c41f9ed8224fe76663be0a418c626e5832b74532593",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0084,
-          "jaccard": 0.0066,
-          "shared_9grams": 284
+          "project_coverage": 0.0076,
+          "jaccard": 0.006,
+          "shared_9grams": 275
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.0079,
-          "jaccard": 0.0064,
-          "shared_9grams": 266
+          "project_coverage": 0.0072,
+          "jaccard": 0.0059,
+          "shared_9grams": 263
         },
         {
           "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/DetailActivity.kt",
-          "project_coverage": 0.0068,
-          "jaccard": 0.0059,
-          "shared_9grams": 227
+          "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
+          "project_coverage": 0.0062,
+          "jaccard": 0.0053,
+          "shared_9grams": 224
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/HubData.kt",
-      "sha256": "649344c3892b3ad03a50bead4431e71df88c19bd4ed3a9861536f14caf6aa45f",
+      "sha256": "93c7542329e09dc721b8ec1ed07b52f7556f286f9948b7465c6453ada89366fb",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.0226,
-          "jaccard": 0.0074,
-          "shared_9grams": 38
+          "project_coverage": 0.0198,
+          "jaccard": 0.0067,
+          "shared_9grams": 35
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/data/Store.kt",
-          "project_coverage": 0.0214,
-          "jaccard": 0.0041,
-          "shared_9grams": 36
+          "project_coverage": 0.0192,
+          "jaccard": 0.0038,
+          "shared_9grams": 34
         },
         {
           "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
-          "project_coverage": 0.0119,
+          "path": "app/src/main/java/com/halo/expressassistant/ui/GoodsPresentation.kt",
+          "project_coverage": 0.0108,
           "jaccard": 0.0065,
-          "shared_9grams": 20
+          "shared_9grams": 19
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/HubIcon.kt",
-      "sha256": "5d38635a4dd14e335137557dc957635ea3ffe2aabbe835c767cc45ed1f9b3704",
+      "sha256": "13ec8507f39e0bf79a51bb8132a73698a4e440b732b3477021a57a26d1aba86f",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/Paper.kt",
-          "project_coverage": 0.0179,
-          "jaccard": 0.0115,
+          "project_coverage": 0.017,
+          "jaccard": 0.0111,
           "shared_9grams": 34
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/HubSheets.kt",
-      "sha256": "71289cd289ca5707bbf83270bd79a7cf54afae589abcd10a4074a3cedd63af54",
+      "sha256": "8d05af79d3d309117eb84470d7bd39e08c23bd36aeac8f4f737aa59d508d7706",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
-          "project_coverage": 0.0264,
+          "project_coverage": 0.0263,
           "jaccard": 0.01,
           "shared_9grams": 102
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0192,
+          "project_coverage": 0.0191,
           "jaccard": 0.0054,
           "shared_9grams": 74
         },
@@ -619,34 +807,34 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/IdentityAutomaticRefresh.kt",
-      "sha256": "068e5cbec9a9b69365b568c07bccddd2f2e3ab7964b6406f575f694644bd4e6a",
+      "sha256": "58e8b4dd852e364fd56cbad7f83eb08ac54b4a96e4ca8c9fc6cd2f4d9dab5060",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/IdentityCodeActivity.kt",
-      "sha256": "559c3dd7d0f1ce6dda8e7d4779cc21ac2d71142de003a73d8808c5ea856977a3",
+      "sha256": "70022b479bd1c0bc5dc41362282b43598d9e3b1305bcfeb68e4a5647290528a4",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.024,
-          "jaccard": 0.0068,
+          "project_coverage": 0.0233,
+          "jaccard": 0.0067,
           "shared_9grams": 46
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0204,
-          "jaccard": 0.0071,
+          "project_coverage": 0.0198,
+          "jaccard": 0.007,
           "shared_9grams": 39
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.0193,
-          "jaccard": 0.0063,
+          "project_coverage": 0.0188,
+          "jaccard": 0.0062,
           "shared_9grams": 37
         }
       ]
@@ -659,43 +847,35 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/IdentityLauncher.kt",
-      "sha256": "2d8f825a5a79da2637c2f24b64ece1c3f1f2afa93b02778b459274f6db248619",
+      "sha256": "a6a29bef58310e6547990581e615790678dcc7d0dc9e318e9daac9c0249c5147",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
-      "closest_token_matches": [
-        {
-          "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0261,
-          "jaccard": 0.0017,
-          "shared_9grams": 18
-        }
-      ]
+      "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/IdentityPageShell.kt",
-      "sha256": "6a03f6e6f1fbf280ce7ddc6b304e7e5ed2e438ce7ea44b908bf6db2e3d9d1493",
+      "sha256": "7826337aa498af7cac54067b4c2b641e760a1ea90789ae26e03f8b73adc5cb1e",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
-          "project_coverage": 0.026,
-          "jaccard": 0.0073,
-          "shared_9grams": 65
-        },
-        {
-          "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0224,
-          "jaccard": 0.0045,
-          "shared_9grams": 56
+          "project_coverage": 0.0182,
+          "jaccard": 0.0057,
+          "shared_9grams": 53
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.0188,
-          "jaccard": 0.0044,
-          "shared_9grams": 47
+          "project_coverage": 0.0172,
+          "jaccard": 0.0045,
+          "shared_9grams": 50
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
+          "project_coverage": 0.0134,
+          "jaccard": 0.0031,
+          "shared_9grams": 39
         }
       ]
     },
@@ -727,7 +907,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/IdentitySessionPolicy.kt",
-      "sha256": "1bcec1d90b47ee49841134d13a110ae968b2c7fcbbff8a43f16173bef47b2cb2",
+      "sha256": "5d5b0bd418095e7140fa55f6e3bdb6d53db9df430d35ab83302278de344b8c7f",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -817,13 +997,19 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/JdlQueryPolicy.kt",
-      "sha256": "b6d38710b41a2891246342207fd6c0b0d1b3b50bdc9d4f4505ff561461fe1900",
+      "sha256": "a3b43bf009d873878b85f3528d2664d64259501f674dda2b7269f752910581f8",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/LatestLogistics.kt",
       "sha256": "7cec684eed304356f44ed956d2b027055eb373c829525b0cf77efe666ac88d73",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/ListReadingPosition.kt",
+      "sha256": "7f81463a366bb990afbd537ff23224d8fb6867a85c09d23242d0c3014d38309b",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -884,6 +1070,12 @@
       ]
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/OfficialIdentityLayout.kt",
+      "sha256": "0f5589ef36de8fd30bcfc030ca467e1d6e21f24d517b619b2e0d9b6d9fca4f93",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/OfficialPageArt.kt",
       "sha256": "177a8ba2381fba7023ab353d18c643ded37277480b106af3492730ddeaa9920f",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
@@ -911,29 +1103,29 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/ParcelDetailActivity.kt",
-      "sha256": "2288a89816b8d67e6f40790571bdcc16b122f215b1e90a729037cbe5b36fa489",
+      "sha256": "5e88982bbc593e342b22fd68e66dc674cfcc8c8536618fe80073ec997a697859",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0139,
-          "jaccard": 0.0064,
-          "shared_9grams": 115
+          "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
+          "project_coverage": 0.0144,
+          "jaccard": 0.0083,
+          "shared_9grams": 124
         },
         {
           "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
-          "project_coverage": 0.0136,
-          "jaccard": 0.0077,
-          "shared_9grams": 112
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
+          "project_coverage": 0.0139,
+          "jaccard": 0.0065,
+          "shared_9grams": 120
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.0129,
-          "jaccard": 0.0064,
-          "shared_9grams": 106
+          "project_coverage": 0.0127,
+          "jaccard": 0.0065,
+          "shared_9grams": 110
         }
       ]
     },
@@ -944,21 +1136,27 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/ParcelGroups.kt",
+      "sha256": "0011d97f5707e286af24dc40e5b736fa3ae700890698f4dacea745ec23aaa78c",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/ParcelMetadata.kt",
-      "sha256": "cd204bfb88800f22543c4e82d887b58ad2cecd948af2f509bd59689de9f03d59",
+      "sha256": "17c9c453af5f9505a5c6b62b6d294a6905908ff4bf7fb6d547256982aa339795",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/ParcelPresentation.kt",
-      "sha256": "47e4f5998109aa445f3521e08167efdb4569a5d4650bbd224e816bfe5aa4b1da",
+      "sha256": "83e8a5b62af422c873bf46cd79dfb25e4eeb91a718bf89e24bc779fe3c9da00b",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/DetailActivity.kt",
-          "project_coverage": 0.0119,
-          "jaccard": 0.0024,
+          "project_coverage": 0.0105,
+          "jaccard": 0.0023,
           "shared_9grams": 16
         }
       ]
@@ -976,87 +1174,415 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddBusinessJournal.kt",
+      "sha256": "fa96f3fe75ce019ed953a088db85740c89fd250e7e3af137c188ea44aa12ab96",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddCapturedResponse.kt",
-      "sha256": "7336475ba1304718a7a62a28d5cad7428eafbefe4a4cd358fae0a45676f9c221",
+      "sha256": "13cbed658dfa24e23b3286ae04dabe13657cf63e85a6f5793e8cb3200e7c9349",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddDetailPayload.kt",
-      "sha256": "588dd9e980c903fd88178414a7429d21e6dc0d6e7ca56fd6407d482b744f9474",
+      "sha256": "fb65e75545cdf0c69e908e6995e0c4aaba23e15907aa8c3a1a902a254809ddeb",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.0136,
-          "jaccard": 0.0037,
-          "shared_9grams": 20
+          "project_coverage": 0.0089,
+          "jaccard": 0.0033,
+          "shared_9grams": 21
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdTrackFetcher.kt",
-          "project_coverage": 0.0102,
-          "jaccard": 0.005,
+          "project_coverage": 0.0063,
+          "jaccard": 0.0039,
           "shared_9grams": 15
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddDetailQueryPolicy.kt",
-      "sha256": "e2839bbff79a104e8b3392779876e13bba3c2179abc92042489303cb45b96fc8",
+      "sha256": "7c4aa0f61f0a26717baeca29af161fce24cc7424e2270b3c8b206c6400e9c50e",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
+          "project_coverage": 0.0262,
+          "jaccard": 0.0037,
+          "shared_9grams": 15
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddDiagnosticBusiness.kt",
+      "sha256": "e74f6d234a30e77438d5e2aefa4524c9897f237c82b87f58c03ceec28bcbd2db",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddDiagnosticPayload.kt",
+      "sha256": "e7de481eba626c194cc59646a123674e2b63c3a9908d2e68081f4c9ce0fd91c5",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddDiagnostics.kt",
+      "sha256": "c2032bd7bf19eb51935fa1075f4fe26b19ff1de66a69551d3cc10eea7c8d9417",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
+          "project_coverage": 0.0097,
+          "jaccard": 0.0039,
+          "shared_9grams": 23
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ai/AiClient.kt",
+          "project_coverage": 0.008,
+          "jaccard": 0.0048,
+          "shared_9grams": 19
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
+          "project_coverage": 0.0076,
+          "jaccard": 0.0048,
+          "shared_9grams": 18
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddDiagnosticSummary.kt",
+      "sha256": "3ca674ec67dab7e26c8fb8a3c6a53d61a9fe64c07466198be1cbcdb83c8e23ff",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddFullLogisticsReader.kt",
+      "sha256": "a5235d51ecb4f5fb6c324adbcb7b51c87647a4fc637b94e8909432220bf0b241",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
+          "project_coverage": 0.0338,
+          "jaccard": 0.0036,
+          "shared_9grams": 16
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddIdentityActivity.kt",
+      "sha256": "9cd96176e78dfc3d6f242bc40f230e16ff12c49dc9eddc03e6a47102d9f126c8",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
+          "project_coverage": 0.0109,
+          "jaccard": 0.0025,
+          "shared_9grams": 32
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
+          "project_coverage": 0.0106,
+          "jaccard": 0.0028,
+          "shared_9grams": 31
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/DonePanelActivity.kt",
+          "project_coverage": 0.0096,
+          "jaccard": 0.0043,
+          "shared_9grams": 28
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddIdentityPayload.kt",
+      "sha256": "b106a2c752eee702c8037aaa2f18a799c92cf730120f0197f28bea3b71b5f5ea",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddIdentityRenderer.kt",
+      "sha256": "4c17d09fed096e4ec5bf9c608a0f4317b0bd103c246c50ec5385d29a8dc6d72f",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddIdentityService.kt",
+      "sha256": "eb02bc092df7239f116a95b29c9fe1eabdb63fda57bd48c76a247ca1ecb71999",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/CaiNiaoGoodsResolver.kt",
+          "project_coverage": 0.0488,
+          "jaccard": 0.0121,
+          "shared_9grams": 25
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
+          "project_coverage": 0.043,
+          "jaccard": 0.007,
+          "shared_9grams": 22
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
+          "project_coverage": 0.0352,
+          "jaccard": 0.0094,
+          "shared_9grams": 18
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddIdlePage.kt",
+      "sha256": "d5f3be56d1d043a41e12608be96ee7f92e46c83273d08f8198a9d5044134b4d5",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddListScope.kt",
-      "sha256": "22dd416c9e1c71eb37170f43b61b8f6b63d5f12a8824a79be5e4440402460dca",
+      "sha256": "d7c807f2304e4eb85ab4ffa940c14df92fede66f6c0d4407ac1b04344c338f34",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddLocationRecovery.kt",
+      "sha256": "2c5bccaf15e4ea426799bc187a99814c325beef5f9e542b3bf31aac14d16c804",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddLocationSupplement.kt",
+      "sha256": "c4b1a1fcbff3d2dc1b4855aff87cdfba1829bc3c8c1330252d0b749de065b6bf",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
+          "project_coverage": 0.0301,
+          "jaccard": 0.0023,
+          "shared_9grams": 21
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/TrackingWorker.kt",
+          "project_coverage": 0.0287,
+          "jaccard": 0.0168,
+          "shared_9grams": 20
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/ChatActivity.kt",
+          "project_coverage": 0.0287,
+          "jaccard": 0.0028,
+          "shared_9grams": 20
+        }
+      ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddLogistics.kt",
-      "sha256": "af03e9022ef159c1a4f6c392230046b47cebc0d58a8b0e71a1d34cd0ec16a272",
+      "sha256": "1f55f74eedffa93cd472bc3284354ecf67ad924e6519f70b42db1a118ca3e3ec",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
-      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderPayload.kt",
-      "sha256": "4ae8cd06bdc4837370181564990f51b998a836883ade024cfa071fc070e5d2f6",
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddLogisticsReadiness.kt",
+      "sha256": "102f3ee8670193f3513f11e14ed93e898517c36eb108f60532f08831d5330682",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddMetadataReader.kt",
+      "sha256": "a98270cb5d0c3e9485cfcd33a0ed2253ab6c22eee419bb6e98fa7a7485689b58",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderBusiness.kt",
+      "sha256": "a1aa298b32e4986ad3951482538a9f3b00d669c396e99e3428e834245806bce8",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderPageFetcher.kt",
+      "sha256": "20b9042b616587dc5d752135f35eb2ed157db78d485d3cd0438f118113ead697",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0319,
-          "jaccard": 0.0068,
+          "project_coverage": 0.1002,
+          "jaccard": 0.0094,
+          "shared_9grams": 50
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
+          "project_coverage": 0.0942,
+          "jaccard": 0.0237,
+          "shared_9grams": 47
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/JdTraceActivity.kt",
+          "project_coverage": 0.0942,
+          "jaccard": 0.0151,
+          "shared_9grams": 47
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderPagePayload.kt",
+      "sha256": "4d3a25a3db398e5ac076f160dd045de3016339e1e242c48510a99d1e0eef1543",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderPayload.kt",
+      "sha256": "9f1928263664b60fa9769224e5a1cd324eb2df3f4d29bfae1336f882a3d8a456",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
+          "project_coverage": 0.0287,
+          "jaccard": 0.0067,
           "shared_9grams": 42
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.0129,
-          "jaccard": 0.0036,
+          "project_coverage": 0.0116,
+          "jaccard": 0.0034,
           "shared_9grams": 17
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0114,
+          "project_coverage": 0.0102,
           "jaccard": 0.003,
           "shared_9grams": 15
         }
       ]
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddOrderProgress.kt",
+      "sha256": "bc93f1f33742d86cfd22770bd3631baa95d60c5e9ebbd042d95449e6a0ad2f7c",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
+          "project_coverage": 0.0571,
+          "jaccard": 0.0043,
+          "shared_9grams": 16
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddPageIdentity.kt",
+      "sha256": "b81c3a770aa336806f57630071d9b2023720b2cb567945c189f27d2517e9e90c",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddPagingPolicy.kt",
-      "sha256": "36ca6c0014375bfad8070d3f6464f004b52470ba60816946a9278a49ce15fe6b",
+      "sha256": "ec7dfb8c19a0021db825ffa1a40ce70f1a1d380fa520c6656a2bc9980846a1a0",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PddPickupCodes.kt",
       "sha256": "863eacd956014df4540b63b4235596afbe68e0116ea0fb44fb4bf9277d1fb562",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddPickupLocation.kt",
+      "sha256": "7b4587e5db2a847bce085d17eee3edfc2e6a688341f756a1e5cc4a5c7036e7b2",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddPickupPayload.kt",
+      "sha256": "4ca9ad32f8cfa77f3d586f59ac47a9a813f626c0132bf7cb4380502903b7de47",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddPickupService.kt",
+      "sha256": "06e2b31b71e7591c6f8b6841466c29271c7d087f4565e16f925e670025e7487b",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/CaiNiaoGoodsResolver.kt",
+          "project_coverage": 0.0358,
+          "jaccard": 0.0133,
+          "shared_9grams": 33
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
+          "project_coverage": 0.0325,
+          "jaccard": 0.013,
+          "shared_9grams": 30
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/TbOrders.kt",
+          "project_coverage": 0.0315,
+          "jaccard": 0.0082,
+          "shared_9grams": 29
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddReadRecovery.kt",
+      "sha256": "244444291f61033f3104e131b5509ae04015d19241bb79b5a977c26c464d9dd1",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/KuaiDi100.kt",
+          "project_coverage": 0.0772,
+          "jaccard": 0.0131,
+          "shared_9grams": 22
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiDetail.kt",
+          "project_coverage": 0.0702,
+          "jaccard": 0.0224,
+          "shared_9grams": 20
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiSync.kt",
+          "project_coverage": 0.0702,
+          "jaccard": 0.0147,
+          "shared_9grams": 20
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/PddReadRecoveryPolicy.kt",
+      "sha256": "4a50dc41d7d77fb49474319b3e30a7520c924036e66d3696a869bbc5436cf0ce",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -1106,7 +1632,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PickupUiPolicy.kt",
-      "sha256": "53f87d2803a46d6deaf55f9f9d4531b7bc0c46ccfc5a2d686c06acc831487e85",
+      "sha256": "6f942c248676e2127b7412c2bf413c50fad7a1bdf40ee1cf2422261febc303d9",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -1118,7 +1644,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/PlatformStyle.kt",
-      "sha256": "291ed7e80d7ea596febc6c5e3d9c2b6d9b89acd6a384867ed9fe87d3f49c069e",
+      "sha256": "afd63101c03b96ad9d37d1bb816818c50a26cbe8a47bc96030bf22db687f2972",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -1130,28 +1656,28 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/ProductPhotos.kt",
-      "sha256": "1cd5cfb3bb2500e98dfd0a8162ddce8ecb80f4a05f49aced9a4bcd7ee079bdfc",
+      "sha256": "91f00a3366f90e75e28d0112dc212eff0e34ad71e863a28291ca8b4b881d07b7",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0475,
-          "jaccard": 0.0056,
+          "project_coverage": 0.0311,
+          "jaccard": 0.0053,
           "shared_9grams": 23
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0475,
-          "jaccard": 0.0043,
+          "project_coverage": 0.0311,
+          "jaccard": 0.0041,
           "shared_9grams": 23
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/TbLoginActivity.kt",
-          "project_coverage": 0.0455,
-          "jaccard": 0.013,
+          "project_coverage": 0.0298,
+          "jaccard": 0.0113,
           "shared_9grams": 22
         }
       ]
@@ -1184,49 +1710,49 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/SessionCookies.kt",
-      "sha256": "985a2de9d1bd884c3fd63e64d05daf2143961dd3fe92e6e9ba7e574b448c208b",
+      "sha256": "2b85e7370287682a2de7b9950364df8b02158a2387b2a92817098050d67a093b",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SourceWebActivity.kt",
-          "project_coverage": 0.0198,
-          "jaccard": 0.0073,
+          "project_coverage": 0.0189,
+          "jaccard": 0.0072,
           "shared_9grams": 29
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0184,
+          "project_coverage": 0.0176,
           "jaccard": 0.0053,
           "shared_9grams": 27
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdTraceActivity.kt",
-          "project_coverage": 0.0157,
-          "jaccard": 0.0056,
+          "project_coverage": 0.015,
+          "jaccard": 0.0055,
           "shared_9grams": 23
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/SyncCacheMerge.kt",
-      "sha256": "4481975ff4cc4658024c9eb34f7144b3310d92f8f42295191f97a97a194402d8",
+      "sha256": "4f204c9e8e7d20ecaa8b920ebf1b641ecfba41ec129c63d23df648bc94be7482",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.0425,
-          "jaccard": 0.0108,
+          "project_coverage": 0.032,
+          "jaccard": 0.01,
           "shared_9grams": 50
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiSync.kt",
-          "project_coverage": 0.0314,
-          "jaccard": 0.0165,
+          "project_coverage": 0.0237,
+          "jaccard": 0.0141,
           "shared_9grams": 37
         }
       ]
@@ -1245,31 +1771,37 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/SyncLedger.kt",
-      "sha256": "1e02a978d8c842191d23b738b68f57473db97795902a968078183769455ee2bf",
+      "sha256": "3b919404d783c22cc7f3a946a9163d016e4c0e2d2072511b4d4d7326c342b970",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/api/XiaomiSync.kt",
-          "project_coverage": 0.0162,
-          "jaccard": 0.0097,
+          "project_coverage": 0.016,
+          "jaccard": 0.0096,
           "shared_9grams": 26
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.0143,
+          "project_coverage": 0.0141,
           "jaccard": 0.0045,
           "shared_9grams": 23
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ai/AiClient.kt",
-          "project_coverage": 0.0131,
+          "project_coverage": 0.0129,
           "jaccard": 0.0066,
           "shared_9grams": 21
         }
       ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/SyncOrderMerge.kt",
+      "sha256": "15b85617a566078f19994798b8c8ae6a6a743233260c7f04e21fe97271b0d45a",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/SyncResultUiState.kt",
@@ -1278,8 +1810,14 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/hub/SyncRunCoordinator.kt",
+      "sha256": "1b0e8735cc6d15efbab43857d4fbda8555e5c676f898dad39b27514b0d272bfd",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/hub/SyncStatusText.kt",
-      "sha256": "970c3285a22f4b8a1ca6c395f4dba3c5a2152115ee16b4efb50e3622ed6d46d5",
+      "sha256": "9f672bdd42a7c4e6e0262d18bfe1c200edf514d5e0bf777624cab1534ea18035",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -1291,28 +1829,28 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/TaobaoIdentityActivity.kt",
-      "sha256": "7fba384261439e8663e04a1f935b79d889f870d1617b009e4057f55dfa7349ab",
+      "sha256": "0f4488784d4e963eb5a93006a638d90b67047c2653bc065eb8912a2664e8be48",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0126,
-          "jaccard": 0.0037,
+          "project_coverage": 0.0117,
+          "jaccard": 0.0036,
           "shared_9grams": 25
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.0121,
-          "jaccard": 0.004,
+          "project_coverage": 0.0113,
+          "jaccard": 0.0039,
           "shared_9grams": 24
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0111,
-          "jaccard": 0.0019,
+          "project_coverage": 0.0103,
+          "jaccard": 0.0018,
           "shared_9grams": 22
         }
       ]
@@ -1331,20 +1869,20 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/TrackingFields.kt",
-      "sha256": "fa9113c24561dbe3be9b4d34da95cc95a23ad6e7f32db2501715f60833279d43",
+      "sha256": "5ae2307dea48ec81183cd6962ddd42257a5d9264304695543fe46e2f7380feaf",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0824,
-          "jaccard": 0.008,
-          "shared_9grams": 43
+          "project_coverage": 0.0544,
+          "jaccard": 0.0055,
+          "shared_9grams": 30
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddCapture.kt",
-          "project_coverage": 0.0421,
+          "project_coverage": 0.0399,
           "jaccard": 0.0066,
           "shared_9grams": 22
         }
@@ -1364,14 +1902,14 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/hub/WebFetchRegistry.kt",
-      "sha256": "ffcf555900a53761720c49fff23c18eae29a1cf40e79cfbff3b863217e185205",
+      "sha256": "7bcd707cfe5495ffb1ac59d4d93832af197181e094b88938ae1c1cdf930c2d68",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0753,
-          "jaccard": 0.0047,
+          "project_coverage": 0.0662,
+          "jaccard": 0.0046,
           "shared_9grams": 18
         }
       ]
@@ -1461,7 +1999,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/TrackingWorker.kt",
-      "sha256": "1e7646172ab2849b8b2c0531e96edc8519ce036e4bba332642b66ab51430548e",
+      "sha256": "a8cdeadd02b0b4c7daeb689ff8f4ae4dd0d5c5f84c7d4031ec40cf5c551bf6b0",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/TrackingWorker.kt",
@@ -1469,23 +2007,16 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/TrackingWorker.kt",
-          "project_coverage": 0.9767,
-          "jaccard": 0.9618,
-          "shared_9grams": 504
-        },
-        {
-          "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.2016,
-          "jaccard": 0.0119,
-          "shared_9grams": 104
+          "project_coverage": 0.5172,
+          "jaccard": 0.0812,
+          "shared_9grams": 45
         },
         {
           "upstream": "Parcel",
           "path": "app/src/main/java/com/xxxx/parcel/worker/NotificationListenerHealthWorker.kt",
-          "project_coverage": 0.0543,
-          "jaccard": 0.0263,
-          "shared_9grams": 28
+          "project_coverage": 0.2874,
+          "jaccard": 0.0392,
+          "shared_9grams": 25
         }
       ]
     },
@@ -1620,6 +2151,18 @@
       ]
     },
     {
+      "path": "app/src/main/java/com/halo/expressassistant/ui/DouyinLoginActivity.kt",
+      "sha256": "26f5dc798a1d50ef31fcd3ab49d998a28faddd474ca156d2dbdc3d789d272f31",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/ui/DouyinLoginPage.kt",
+      "sha256": "e6b7f0c46d467233bd256c59ad2e4cba6682e6ae8e890813d026847922861187",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/main/java/com/halo/expressassistant/ui/EdgeToEdge.kt",
       "sha256": "05730384fee730b0a7406048c73305702a8224fc48324ef13f6a8e29fcda08c6",
       "classification": "upstream-identical",
@@ -1714,20 +2257,20 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/JdlWebFetcher.kt",
-      "sha256": "7e6d4dc34dfc273bd9585888d87c1a6f2f5075791883450d21b8ed75517fb3db",
+      "sha256": "a2a22045dd75a3bd4a66f57bfcc75075e848abc7b940ed4facca5e4fcb1210b0",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0376,
+          "project_coverage": 0.0375,
           "jaccard": 0.0177,
           "shared_9grams": 118
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0318,
+          "project_coverage": 0.0317,
           "jaccard": 0.0126,
           "shared_9grams": 100
         },
@@ -1802,7 +2345,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/JdTrackFetcher.kt",
-      "sha256": "c80128e3f76eaa86d5c0322bd5fdc70baa691199dde81995c0c3100339beb700",
+      "sha256": "4e4810faf8e9ccbdfccd87d69b592888df4c23df6a87b99536b835e1fa8ab4a5",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/JdTrackFetcher.kt",
@@ -1810,9 +2353,16 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdTrackFetcher.kt",
-          "project_coverage": 0.1031,
-          "jaccard": 0.0153,
-          "shared_9grams": 27
+          "project_coverage": 0.0784,
+          "jaccard": 0.0118,
+          "shared_9grams": 21
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddCapture.kt",
+          "project_coverage": 0.0709,
+          "jaccard": 0.0062,
+          "shared_9grams": 19
         }
       ]
     },
@@ -1863,7 +2413,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/PddCapture.kt",
-      "sha256": "465a9ab768f211d378ee049a9477bd019b29abd86765277d39bfb6a2da2e4278",
+      "sha256": "fa8517e7754d113583de2e9def1a2285b2d82b2f62aaa3839dd247e956de9c48",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/PddCapture.kt",
@@ -1871,29 +2421,29 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddCapture.kt",
-          "project_coverage": 0.8698,
-          "jaccard": 0.8309,
-          "shared_9grams": 2678
+          "project_coverage": 0.7569,
+          "jaccard": 0.7116,
+          "shared_9grams": 2603
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.1361,
-          "jaccard": 0.0666,
-          "shared_9grams": 419
+          "project_coverage": 0.1186,
+          "jaccard": 0.0613,
+          "shared_9grams": 408
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdTraceActivity.kt",
-          "project_coverage": 0.0734,
-          "jaccard": 0.0409,
-          "shared_9grams": 226
+          "project_coverage": 0.0634,
+          "jaccard": 0.037,
+          "shared_9grams": 218
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-      "sha256": "a5a20e727fadd5ffec2adb0ec88e807cdd99da4b1a9db8572425b83af6c688bb",
+      "sha256": "fdf5833652d03ec7c8107e83f0ec5131868ebb55a70607a76ddf2a9846da352a",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
@@ -1901,29 +2451,29 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.5144,
-          "jaccard": 0.2907,
-          "shared_9grams": 1959
+          "project_coverage": 0.3889,
+          "jaccard": 0.2439,
+          "shared_9grams": 1933
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.1654,
-          "jaccard": 0.0925,
-          "shared_9grams": 630
+          "project_coverage": 0.1243,
+          "jaccard": 0.0774,
+          "shared_9grams": 618
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.1497,
-          "jaccard": 0.0786,
-          "shared_9grams": 570
+          "project_coverage": 0.1131,
+          "jaccard": 0.0668,
+          "shared_9grams": 562
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
-      "sha256": "119771fb846d04bd553e7c7d7501bec73574719d542a28069ce2f4def943ae6a",
+      "sha256": "8a56a607c5c4e81d4694ec9b89259de51cbee7e0b698af9fecb6cf271c650cba",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
@@ -1931,23 +2481,23 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.0114,
-          "jaccard": 0.0047,
-          "shared_9grams": 66
-        },
-        {
-          "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
-          "project_coverage": 0.0094,
-          "jaccard": 0.0075,
-          "shared_9grams": 54
+          "project_coverage": 0.011,
+          "jaccard": 0.0048,
+          "shared_9grams": 70
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/DetailActivity.kt",
-          "project_coverage": 0.0094,
-          "jaccard": 0.0049,
-          "shared_9grams": 54
+          "project_coverage": 0.0088,
+          "jaccard": 0.0048,
+          "shared_9grams": 56
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
+          "project_coverage": 0.0086,
+          "jaccard": 0.007,
+          "shared_9grams": 55
         }
       ]
     },
@@ -2004,7 +2554,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-      "sha256": "ed141a798dfcd4c9b7a15c87cd220d74c2761471410c1cb7763e811f0cf07c1b",
+      "sha256": "07627a5302d5bb5f60d4f1a2b7defa3b23591946d5a1499418637f311b45a524",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
@@ -2012,50 +2562,78 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
-          "project_coverage": 0.6482,
-          "jaccard": 0.407,
-          "shared_9grams": 2095
+          "project_coverage": 0.396,
+          "jaccard": 0.2776,
+          "shared_9grams": 1931
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.241,
-          "jaccard": 0.1061,
-          "shared_9grams": 779
+          "project_coverage": 0.1559,
+          "jaccard": 0.0844,
+          "shared_9grams": 760
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0792,
-          "jaccard": 0.0388,
-          "shared_9grams": 256
+          "project_coverage": 0.0537,
+          "jaccard": 0.0318,
+          "shared_9grams": 262
+        }
+      ]
+    },
+    {
+      "path": "app/src/main/java/com/halo/expressassistant/ui/PddTracePagePool.kt",
+      "sha256": "a0af3127ee430cd68c23be3ba0a873458d32e1688e4a4b5108c4361e9900df03",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
+          "project_coverage": 0.12,
+          "jaccard": 0.0092,
+          "shared_9grams": 36
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/JdOrderResolver.kt",
+          "project_coverage": 0.1033,
+          "jaccard": 0.0154,
+          "shared_9grams": 31
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/JdTrackFetcher.kt",
+          "project_coverage": 0.1,
+          "jaccard": 0.0166,
+          "shared_9grams": 30
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/PlatformLoginActivity.kt",
-      "sha256": "895b9fd9371db94af4b5fb29c255d0f98f12f40184fd7d713574c30a517e323b",
+      "sha256": "8f14f557bcdf0f0f512b8392b89c211bb31c3038ba228760f8ae4ee782cf7923",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": [
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/PddLoginActivity.kt",
-          "project_coverage": 0.0179,
-          "jaccard": 0.0139,
+          "project_coverage": 0.0175,
+          "jaccard": 0.0137,
           "shared_9grams": 91
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.0175,
-          "jaccard": 0.006,
+          "project_coverage": 0.0171,
+          "jaccard": 0.0059,
           "shared_9grams": 89
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/MainActivity.kt",
-          "project_coverage": 0.0167,
-          "jaccard": 0.0064,
+          "project_coverage": 0.0164,
+          "jaccard": 0.0063,
           "shared_9grams": 85
         }
       ]
@@ -2073,7 +2651,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-      "sha256": "1d7322f63961c236e4330a6f166c89936703ddd98ab93b926326b77737523487",
+      "sha256": "28391c49e759bd6eb8ca516334480834853767da605d733be605597563a351af",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
@@ -2081,9 +2659,9 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SettingsActivity.kt",
-          "project_coverage": 0.9877,
-          "jaccard": 0.9668,
-          "shared_9grams": 9683
+          "project_coverage": 0.9886,
+          "jaccard": 0.9686,
+          "shared_9grams": 9692
         },
         {
           "upstream": "ExpressAssistant",
@@ -2114,7 +2692,7 @@
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/SourceWebActivity.kt",
-      "sha256": "48f92b564fda409e791f01ddc645052d79e0f46ff06424d7b43c0d401cc98e1f",
+      "sha256": "0ee946dc264dcf911d73df461898e379e522b20fbb5f1389c42bfea285107fd3",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/SourceWebActivity.kt",
@@ -2122,29 +2700,29 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SourceWebActivity.kt",
-          "project_coverage": 0.1021,
-          "jaccard": 0.0586,
-          "shared_9grams": 306
+          "project_coverage": 0.0996,
+          "jaccard": 0.0575,
+          "shared_9grams": 303
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdLoginActivity.kt",
-          "project_coverage": 0.0391,
-          "jaccard": 0.0279,
-          "shared_9grams": 117
+          "project_coverage": 0.0388,
+          "jaccard": 0.0278,
+          "shared_9grams": 118
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdTraceActivity.kt",
-          "project_coverage": 0.0334,
-          "jaccard": 0.018,
+          "project_coverage": 0.0329,
+          "jaccard": 0.0178,
           "shared_9grams": 100
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-      "sha256": "ad043358aa8570d61d568eabf87be4ec1e2592c0c1682502edac4a096b6fab55",
+      "sha256": "3814e1ff34bfb5cdb44ac880ad79277551b089799e6eb12eb88a584d6abc750e",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
@@ -2152,29 +2730,29 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/SyncEngine.kt",
-          "project_coverage": 0.494,
-          "jaccard": 0.4442,
-          "shared_9grams": 2843
-        },
-        {
-          "upstream": "ExpressAssistant",
-          "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
-          "project_coverage": 0.0202,
-          "jaccard": 0.011,
-          "shared_9grams": 116
+          "project_coverage": 0.4264,
+          "jaccard": 0.3826,
+          "shared_9grams": 2750
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/JdListFetcher.kt",
-          "project_coverage": 0.0191,
+          "project_coverage": 0.0185,
           "jaccard": 0.0119,
-          "shared_9grams": 110
+          "shared_9grams": 119
+        },
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddListFetcher.kt",
+          "project_coverage": 0.018,
+          "jaccard": 0.0103,
+          "shared_9grams": 116
         }
       ]
     },
     {
       "path": "app/src/main/java/com/halo/expressassistant/ui/TbLoginActivity.kt",
-      "sha256": "c2793af32abe3577c8d48c8e892885466cc50355a24910ed70f349f4a6f765a6",
+      "sha256": "2773dd7245bf770b270d905f64421ac9449eacfbf1e6fb951c178375daa978c4",
       "classification": "upstream-derived-with-project-changes",
       "upstream": "ExpressAssistant",
       "base_path": "app/src/main/java/com/halo/expressassistant/ui/TbLoginActivity.kt",
@@ -2182,22 +2760,22 @@
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/DetailActivity.kt",
-          "project_coverage": 0.0133,
-          "jaccard": 0.003,
+          "project_coverage": 0.0139,
+          "jaccard": 0.0031,
           "shared_9grams": 21
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/TbLoginActivity.kt",
-          "project_coverage": 0.0121,
-          "jaccard": 0.0068,
-          "shared_9grams": 19
+          "project_coverage": 0.0133,
+          "jaccard": 0.0074,
+          "shared_9grams": 20
         },
         {
           "upstream": "ExpressAssistant",
           "path": "app/src/main/java/com/halo/expressassistant/ui/DonePanelActivity.kt",
-          "project_coverage": 0.0114,
-          "jaccard": 0.0034,
+          "project_coverage": 0.0119,
+          "jaccard": 0.0035,
           "shared_9grams": 18
         }
       ]
@@ -3412,6 +3990,11 @@
       ]
     },
     {
+      "path": "app/src/main/res/xml/diagnostic_paths.xml",
+      "sha256": "4e830532d563dcc6f637f5d9a559acfca71ae54224c5f274cabf58ad7d4f8fe4",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship"
+    },
+    {
       "path": "app/src/main/res/xml/express_accessibility_config.xml",
       "sha256": "62dc7f4204bee8b29d211669950a625ff89ee8a13ec97655312178f3eda73e21",
       "classification": "upstream-identical",
@@ -3440,8 +4023,26 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/data/PddAccountBindingTest.kt",
+      "sha256": "3bc783c0f3946bd5d92fc107f9a9e667fcefe4cd252a7eea673de7e3f2955129",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/data/TaobaoAccountBindingTest.kt",
       "sha256": "fdbb2fcd259dc19de4710095521171a708b5f77682c6944887af2b28423ab92e",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/ActiveRefreshFeedbackTest.kt",
+      "sha256": "9c550df999c965cc903d34f9373a6b94ee5af592101c997cb35061b0768a1cdd",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/BackgroundSyncPolicyTest.kt",
+      "sha256": "ce0d09a22df4056e9c0a5bfde4f8e8678236f929f4db6ff2f1e2305115d6bfc0",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -3486,6 +4087,12 @@
       ]
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/DouyinIntegrationTest.kt",
+      "sha256": "9a9c5dc582cabc2a5bf73f7ff5101cc1ee519de3d9671aae3b99426c1a4d1ad7",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/hub/HistorySelectionPolicyTest.kt",
       "sha256": "51fb8b2e6d1bb364c1962958f4775b830552f022367283ad4e4e6af732480026",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
@@ -3511,7 +4118,7 @@
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/ImportPolicyTest.kt",
-      "sha256": "e850ba5c4ec29756db6fcf8478cf283f0d5a4114597295bdb14c2ea9d45154cd",
+      "sha256": "a5694e8e96bb828e4101bc268b2b74b3b2ce0a228be6151255526cd497c38980",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -3570,8 +4177,26 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/ListReadingPositionTest.kt",
+      "sha256": "78680cdc28ed3e3e7726cda48ee1df222ab875d638f94d380f91879b86aca388",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/October24FeedbackRegressionTest.kt",
+      "sha256": "2c44fb259aec4f9ae8dda184692aba85989d9fb6a5d00a4ac3da5ca849727745",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/hub/OrderReadV21RegressionTest.kt",
       "sha256": "fb11159e344a456685d0d26a28a35ca6fa9272d1dfffb0ebaae6634b1143a5f4",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/ParcelGroupsTest.kt",
+      "sha256": "9c3e2e2067b78f8a068313ded73490ba298d5483c4a93449c9e9f233f35cb701",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -3594,44 +4219,148 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddDiagnosticBusinessTest.kt",
+      "sha256": "489c56252174556d4112db0129e598aadb672b0c019598265f1ccc4927c21c51",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddDiagnosticPayloadTest.kt",
+      "sha256": "f6b97ba44f084b1fcf4b39ed47d59e8184ac504af7280d456a75aede3c75ce44",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddForwardingWarehouseTest.kt",
+      "sha256": "e38ac44b4b47ece0942f5c5e7f1a5a321112b7e6ed2556df4eeeb85882d3687d",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddFullLogisticsReaderTest.kt",
+      "sha256": "1778caa0cb3a61bd4e9932ac5b7c748e775f15d208c3fd1e48a616d298be7dbb",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": [
+        {
+          "upstream": "ExpressAssistant",
+          "path": "app/src/main/java/com/halo/expressassistant/ui/PddTraceFetcher.kt",
+          "project_coverage": 0.0265,
+          "jaccard": 0.0039,
+          "shared_9grams": 18
+        }
+      ]
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddFullTimelineFeedbackTest.kt",
+      "sha256": "b6d8bf18e0da75c4cc8c1deba52c8b315a74fd35d9eaa3aa9ebe3824fd80107b",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddIdentityPayloadTest.kt",
+      "sha256": "b19a7fb562e7e1925f970f63e110ddb8cbeb02b8160007043c44b524828dba80",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddLocationPhoneFeedbackTest.kt",
+      "sha256": "46c3adf0879068247bb00314ec4fa5c9f67af224868789b4783d6d2e26cde185",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PddLogisticsRegressionTest.kt",
       "sha256": "69d55ac1309f9b75b5649ee28a9ad8692fcc56b5fdbf814fbd9b3c6b4556931e",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddMetadataReaderTest.kt",
+      "sha256": "9ba5df2d6037abd190d386139a34b677a5efb98888a5ad673be8d010393cd67e",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddNonParcelOrderTest.kt",
+      "sha256": "31ac75fed7517d188db8ccc926ae8c2e3d2a153ef736e327975e3f860d6fbc88",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddOrderPagePayloadTest.kt",
+      "sha256": "0156d2417763c2f341545753bbee3537eee5039dd83ba50535afbaba54bc0927",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddPageIdentityTest.kt",
+      "sha256": "bdbfdab486fe9c182a10475e49403fc0de0e4a16a77d7c90541d9318cbb40e3e",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PddPagingPolicyTest.kt",
-      "sha256": "221c1ca1e340b96eda44c645c5ceace91c4b378c52e7e22469841d4355ebd132",
+      "sha256": "cee596b8fc55fb52b8a2ee4ec3ad4dae26dceb426218bf4a22b08b7275f2a551",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PddPayloadTest.kt",
-      "sha256": "6bfd504e3df7b055610c3ba14303ba587e579b4772db8589815b484c8ed4019c",
+      "sha256": "f14527debacefc7e5dece1885e9b240a4468d029ff7d114f64d41c6f45694542",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddPickupHistoryPriorityTest.kt",
+      "sha256": "5e7155aed9e4ccd4d913ac375f2d8da15ca45e4d3d944bec27a97153b854a69f",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PddPickupPriorityTest.kt",
-      "sha256": "40991f3c855735dbd2c4cd95f1b2360481b52d6b523cef455d67017ef311da7c",
+      "sha256": "da5c41487654b0757f3a8c2f05daef964a9b10197d32427feec59d2417b74d95",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddPickupServiceTest.kt",
+      "sha256": "e757aaeda358b5323cb324ec54287f3db5a8445a6ca110e6716f7f2dfe74a9d8",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddReadRecoveryTest.kt",
+      "sha256": "933804b2bc32552c3dcba3240d674c380e154ace9c3fa29bc0665fa0d7938683",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PddReadSpeedPolicyTest.kt",
+      "sha256": "acc16343bc98ea44bcd004271f9939e3e08643a29c96c85df532eabea15ff24f",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PddRefreshRegressionTest.kt",
-      "sha256": "e1726b4d218cc02b9dff1e944af26e9c35075c274a1122a3f06e1fe7550d2c5a",
+      "sha256": "f57328f1d0552d32e9f967852de81de746c4ddaff6b603d7072eb28cbc27b3ea",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/PickupLocationRetentionTest.kt",
+      "sha256": "ca4170c874a271950c69894b495492a17c5328a6e0c2f908152bc9097e77eb64",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PickupPayloadTest.kt",
-      "sha256": "8fd2a8770a665b5c3bfc7b07d406d2c19bc11c5eb5c20f7439bb31d10ad788fe",
+      "sha256": "4a72309300031bd3c01c37e1093a68b277eaf6c31ac1b92715399d01381cd213",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/PickupTextTest.kt",
-      "sha256": "1f4aa97b976ab9e5a72592fe57279a8aadb788ecd9e40b14c652d82781668b13",
+      "sha256": "b810729a9c1393922e34e2596583e4e03be792bd7023167eb9f7010c95c8b814",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -3672,6 +4401,12 @@
       "closest_token_matches": []
     },
     {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/SyncLatencyRegressionTest.kt",
+      "sha256": "940323a3221b10564f3de4a048cdabe8c5c5cfe196bf090f1a995c97972d4100",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
       "path": "app/src/test/java/com/halo/expressassistant/hub/SyncResultUiStateTest.kt",
       "sha256": "2d8105a63b76931f9817fb847defc4c28097f75b6081393a0a1489b2b56f95c0",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
@@ -3680,6 +4415,12 @@
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/SyncWindowTest.kt",
       "sha256": "50beeabbee9fcf51b14cfbd4286d1c942987eb5eda5eb1afb8a5e249d514cf32",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/TaobaoShippingRegressionTest.kt",
+      "sha256": "6d25d24edfb9fd6396f6ecb8f9353fa9032337d2df8bba2b3545ad19f19b2203",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },
@@ -3703,7 +4444,13 @@
     },
     {
       "path": "app/src/test/java/com/halo/expressassistant/hub/TransitAndQueryPolicyTest.kt",
-      "sha256": "f170bae285b04e4b98831fa4e10682e947163979515f697c7e9c89de7666e6d0",
+      "sha256": "6a36733a16c1f8d3bd54df3750b964b45d49688ac797f20ee52c3201b18e1ab0",
+      "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
+      "closest_token_matches": []
+    },
+    {
+      "path": "app/src/test/java/com/halo/expressassistant/hub/UnifiedActiveRefreshTest.kt",
+      "sha256": "7b7534dce8a2dfbae8b8ecf0589c6f027bd99cb3dce5290a0a1b58836e375fe6",
       "classification": "project-specific-candidate-not-proof-of-exclusive-authorship",
       "closest_token_matches": []
     },

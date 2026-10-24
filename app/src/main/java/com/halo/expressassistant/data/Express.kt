@@ -104,7 +104,20 @@ data class ExpressItem(
     /** Independently observed PDD code retained when Cainiao is selected; never an ID suffix. */
     val pddPickupCode:String = "",
     val pddPickupCodeAt:Long = 0,
-    val pddPickupStation:String = ""
+    val pddPickupStation:String = "",
+    /** Direct multi-duoduo pickup-service evidence; observation time is not a pickup event time. */
+    val pddPickupServiceState:String = "",
+    val pddPickupServiceAt:Long = 0,
+    val pddPickupServiceCompletedAt:Long = 0,
+    val pddPickupServiceCode:String = "",
+    val pddPickupServiceStation:String = "",
+    val pddReadIntegrityVersion:Int = 0,
+    val pddReadRepairRequired:Boolean = false,
+    /** Per-order product facts must survive shared terminal waybills. */
+    val orderImageUrl:String = "",
+    val orderGoodsCount:String = "",
+    val orderWaybill:String = "",
+    @kotlinx.serialization.Transient val relatedGoods:List<ParcelOrderGoods> = emptyList()
 ) {
     fun stateLabel(): String {
         if (stateOverride.isNotBlank()) return stateOverride
@@ -119,6 +132,8 @@ data class ExpressItem(
         }
     }
 }
+
+data class ParcelOrderGoods(val orderId:String,val name:String,val imageUrl:String="",val count:String="",val originalWaybill:String="")
 
 fun sectionKeyOf(item: ExpressItem): String {
     if (item.partitionOverride.isNotBlank()) return item.partitionOverride

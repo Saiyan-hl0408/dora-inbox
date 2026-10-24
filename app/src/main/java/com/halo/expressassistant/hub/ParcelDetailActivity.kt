@@ -48,6 +48,7 @@ class ParcelDetailActivity:AppCompatActivity() {
     private fun dp(n:Int)=(n*resources.displayMetrics.density+.5f).toInt()
     override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
+        PddLocationRecovery.prepare(this)
         val id=intent.getStringExtra(EXTRA_ITEM_ID).orEmpty()
         val source=intent.getStringExtra(EXTRA_SOURCE).orEmpty()
         val owner=intent.getStringExtra(EXTRA_ACCOUNT_ID).orEmpty()
@@ -79,7 +80,8 @@ class ParcelDetailActivity:AppCompatActivity() {
         if(needsTraceRefresh())refresh()
     }
     private fun needsTraceRefresh()=when(parcel.source) {
-        "pdd"->Store.pddTraceNeedsRefresh(this,parcel.mailNo,ParcelPresentation.stage(parcel)==ParcelPresentation.Stage.CLOSED)
+        "pdd"->Store.pddTraceNeedsRefresh(this,parcel.mailNo,ParcelPresentation.stage(parcel)==ParcelPresentation.Stage.CLOSED) ||
+            (PddDetailQueryPolicy.missingLocation(parcel) && HubData.prefs(this).getInt("pdd_detail_version_${parcel.accountId}_${parcel.id}",0)<PddDetailQueryPolicy.VERSION)
         "taobao"->Store.tbTraces(this,parcel.mailNo,ParcelPresentation.stage(parcel)==ParcelPresentation.Stage.CLOSED).isNullOrEmpty()
         else->false
     }
@@ -87,9 +89,11 @@ class ParcelDetailActivity:AppCompatActivity() {
         "jd"->DetailPresentation.points(Store.jdTracesCached(this,parcel.mailNo).orEmpty()).take(1).ifEmpty {DetailPresentation.localSummary(parcel)} // A cached JD node is still only a summary.
         "pdd"->Store.pddTraces(this,parcel.mailNo).orEmpty().ifEmpty {DetailPresentation.localSummary(parcel)}
         "taobao"->Store.tbTracesCached(this,parcel.mailNo).orEmpty().ifEmpty {DetailPresentation.localSummary(parcel)}
+        "douyin"->emptyList()
         else->DetailPresentation.localSummary(parcel)
     }
     private fun render() {
+        parcel=ParcelGroups.current(Store.items(this),parcel)
         val position=scroll.scrollY
         content.removeAllViews();footer.removeAllViews()
         val summary=DetailPresentation.summary(parcel,Store.jdGoods(this)[parcel.mailNo],HubData.collectedTimes(this)[parcel.mailNo])
@@ -229,6 +233,18 @@ class ParcelDetailActivity:AppCompatActivity() {
             if(includeFacts)addView(productTitle,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(9)})
         },LinearLayout.LayoutParams(0,-2,1f))
         card.addView(row)
+        if(parcel.relatedGoods.size>1) {
+            card.addView(ui.text("同一运单关联 ${parcel.relatedGoods.size} 笔订单",14,true,HubUi.accent).apply {setPadding(0,dp(12),0,dp(6))})
+            parcel.relatedGoods.forEach {goods->
+                val line=LinearLayout(this).apply {gravity=Gravity.TOP;setPadding(0,dp(6),0,dp(6))}
+                if(goods.imageUrl.isNotBlank()) {
+                    val image=ImageView(this).apply {scaleType=ImageView.ScaleType.CENTER_CROP;contentDescription=goods.name}
+                    ProductPhotos.load(image,goods.imageUrl,dp(48));line.addView(image,LinearLayout.LayoutParams(dp(42),dp(42)).apply {marginEnd=dp(8)})
+                }
+                line.addView(ui.text(goods.name+if(goods.count.isBlank())"" else "  ${goods.count}",14),LinearLayout.LayoutParams(0,-2,1f))
+                card.addView(line)
+            }
+        }
         if(includeFacts) {
             card.addView(ui.spacer(9))
             if(summary.station.isNotBlank())ui.fact(card,"location",summary.station)
@@ -304,7 +320,7 @@ class ParcelDetailActivity:AppCompatActivity() {
         val body=ui.column().apply {gravity=Gravity.CENTER_HORIZONTAL;if(simpleRecord){background=ui.round(Color.rgb(242,249,255),12);setPadding(dp(8),dp(4),dp(8),dp(8))}}
         body.addView(DetailEmptyArtwork(this),LinearLayout.LayoutParams(dp(if(simpleRecord)108 else 150),dp(if(simpleRecord)108 else 150)).apply {topMargin=dp(if(simpleRecord)4 else 14);bottomMargin=dp(8)})
         body.addView(ui.text(if(simpleRecord)"暂无物流轨迹" else "暂未取得更多轨迹",if(simpleRecord)16 else 18,true).apply {gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2))
-        body.addView(ui.text(if(simpleRecord)"暂未取得更多物流轨迹，可到官方页面查看。" else "可刷新重试，或到官方页面查看。",13,color=HubUi.muted).apply {gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(12);bottomMargin=dp(if(simpleRecord)10 else 24)})
+        body.addView(ui.text(if(parcel.source=="douyin")"当前仅同步订单和运单，完整轨迹请到抖音 App 查看。" else if(simpleRecord)"暂未取得更多物流轨迹，可到官方页面查看。" else "可刷新重试，或到官方页面查看。",13,color=HubUi.muted).apply {gravity=Gravity.CENTER},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(12);bottomMargin=dp(if(simpleRecord)10 else 24)})
         card.addView(body,LinearLayout.LayoutParams(-1,-2).apply {topMargin=if(simpleRecord)dp(14) else 0})
         content.addView(card)
     }
@@ -376,9 +392,11 @@ class ParcelDetailActivity:AppCompatActivity() {
                         val result=PddTraceFetcher.fetchMetadata(this@ParcelDetailActivity,before,cookies) ?: error("未取得物流详情")
                         requireOwner(owner)
                         check(IdentitySessionPolicy.matchesOwner("pdd",cookies,SessionCookies.current("pdd"))){"当前账号已变化"}
-                        if(result.points.isNotEmpty())parcel=ParcelMetadata.apply(this@ParcelDetailActivity,before,result.waybill,result.company,result.points,result)
+                        val resolvedPoints=if(result.summaryOnly)PddOrderPagePayload.withHistory(Store.pddTraces(this@ParcelDetailActivity,before.mailNo).orEmpty(),result.points) else result.points
+                        if(resolvedPoints.isNotEmpty())parcel=ParcelMetadata.apply(this@ParcelDetailActivity,before,result.waybill,result.company,resolvedPoints,result)
+                        if(resolvedPoints.isNotEmpty())HubData.prefs(this@ParcelDetailActivity).edit().putInt("pdd_detail_version_${before.accountId}_${before.id}",PddDetailQueryPolicy.VERSION).apply()
                         result.goods?.let {goods->Store.saveJdGoods(this@ParcelDetailActivity,GoodsCache.mergeAll(Store.jdGoods(this@ParcelDetailActivity),mapOf(parcel.mailNo to goods)))}
-                        result.points
+                        resolvedPoints
                     }
                     "taobao"->{
                         val order=before.queryChannel.takeIf {it.matches(Regex("[0-9]{8,32}"))}
@@ -412,6 +430,7 @@ class ParcelDetailActivity:AppCompatActivity() {
     }
     private fun openOfficial() {
         work?.cancel()
+        if(parcel.source=="douyin"){DouyinOfficial.open(this,parcel);return}
         if(parcel.source=="cainiao") {
             val id=parcel.pickupQueryAccountId.ifBlank {parcel.accountId}
             val owner=Store.accountById(this,"taobao",id)?.takeIf {it.enabled}

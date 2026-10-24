@@ -22,10 +22,14 @@
     <application android:name=".App" android:allowBackup="false" android:enableOnBackInvokedCallback="true" android:icon="@mipmap/ic_launcher" android:label="@string/app_name" android:roundIcon="@mipmap/ic_launcher_round" android:supportsRtl="true" android:theme="@style/Theme.ParcelHub.Light">
 
         <activity android:name=".ui.MainActivity" android:exported="false" />
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.diagnostics" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/diagnostic_paths" />
+        </provider>
 
         <uses-library android:name="com.miui.system" android:required="false" />
 
         <activity android:name=".hub.IdentityCodeActivity" android:exported="false" android:theme="@style/Theme.ParcelHub.IdentityDialog" />
+        <activity android:name=".hub.PddIdentityActivity" android:exported="false" android:theme="@style/Theme.ParcelHub.Light" />
         <activity android:name=".hub.TaobaoIdentityActivity" android:exported="false" android:theme="@style/Theme.ParcelHub.IdentityDialog" />
         <activity android:name=".hub.HubActivity" android:exported="true">
             <intent-filter>

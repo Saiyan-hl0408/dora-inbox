@@ -26,6 +26,8 @@ import com.halo.expressassistant.hub.PlatformStyle
 import com.halo.expressassistant.hub.SessionCookies
 import com.halo.expressassistant.hub.CookiePairs
 import com.halo.expressassistant.hub.HubData
+import com.halo.expressassistant.hub.PddDiagnostics
+import com.halo.expressassistant.hub.PddDiagnosticPayload
 import com.halo.expressassistant.hub.OfficialScanArt
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -36,6 +38,11 @@ import kotlin.math.floor
 
 /** Keep the official QR page alive while its user confirms login in the original App. */
 open class PddLoginActivity : PlatformLoginActivity("pdd") {
+    override fun saveAuthorizedSession(cookies:String):android.content.Intent {
+        val account=com.halo.expressassistant.data.Store.addPddAccount(this,cookies)
+        PddDiagnostics.login(this,"账号已保存",mapOf("accountRef" to PddDiagnosticPayload.ref(account.id),"enabled" to account.enabled.toString()))
+        return android.content.Intent().putExtra("bound_channel","pdd").putExtra("authorized_account_id",account.id)
+    }
     override val loginHelpText:String get()="保存官方二维码，在拼多多 App 的扫一扫中选择相册并授权，返回后自动检查并绑定。\n\n如需选择姓名、地址或完成安全验证，请在官方页面完成后等待检查。二维码过期时重新获取；可点检查登录重试。"
     private val imageWorker=Executors.newSingleThreadExecutor()
     private val qrHandler=Handler(Looper.getMainLooper())
@@ -140,6 +147,21 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         root.addView(retryButton,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(7)})
         qrGuidance=OfficialFlowUi.text(this,"二维码来自官方页面，仅用于本次登录授权。",10.8f,false,HubUi.muted).apply {gravity=Gravity.CENTER}
         root.addView(qrGuidance,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(9)})
+        root.addView(OfficialFlowUi.button(this,"复制绑定与同步诊断") {
+            (getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                .setPrimaryClip(android.content.ClipData.newPlainText("拼多多绑定与同步诊断",PddDiagnostics.summary(this)))
+            Toast.makeText(this,"已复制脱敏诊断",Toast.LENGTH_SHORT).show()
+        }.apply {textSize=11f;minHeight=dp(40);minimumHeight=dp(40);strokeWidth=0;backgroundTintList=ColorStateList.valueOf(Color.TRANSPARENT)},LinearLayout.LayoutParams(-1,-2))
+        root.addView(OfficialFlowUi.button(this,"分享完整诊断（TXT）") {
+            val report=PddDiagnostics.report(this)
+            imageWorker.execute {
+                val file=runCatching {com.halo.expressassistant.hub.DiagnosticShare.file(this,"pdd-login",report)}.getOrNull()
+                runOnUiThread {
+                    if(!isFinishing && !isDestroyed)runCatching {requireNotNull(file);com.halo.expressassistant.hub.DiagnosticShare.open(this,file)}
+                        .onFailure {Toast.makeText(this,"暂时无法分享，请重试",Toast.LENGTH_SHORT).show()}
+                }
+            }
+        }.apply {textSize=11f;minHeight=dp(40);minimumHeight=dp(40);strokeWidth=0;backgroundTintList=ColorStateList.valueOf(Color.TRANSPARENT)},LinearLayout.LayoutParams(-1,-2))
         state.addTextChangedListener(object:android.text.TextWatcher {
             override fun beforeTextChanged(s:CharSequence?,start:Int,count:Int,after:Int) {}
             override fun onTextChanged(s:CharSequence?,start:Int,before:Int,count:Int) {updateQrActions()}
@@ -227,6 +249,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
     }
 
     override fun onOfficialPage(view:WebView,url:String,isOfficial:Boolean,isLanding:Boolean) {
+        PddDiagnostics.login(this,"网页跳转",mapOf("path" to PddDiagnosticPayload.endpoint(url),"official" to isOfficial.toString(),"landing" to isLanding.toString()))
         if(!isOfficial)return
         qrUiVersion++;probingQrUi=false
         qrReady=false;updateQrActions()
@@ -252,6 +275,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         if(!intent.getBooleanExtra("freshLogin",false) && PddLoginSession.hasCredentials(CookiePairs.parse(SessionCookies.current("pdd"))))ORDERS_URL else LOGIN_URL
 
     override fun onManualLoginCheck() {
+        PddDiagnostics.login(this,"手动检查登录")
         if(Uri.parse(web.url.orEmpty()).path=="/orders.html") {
             verifyOrderPage()
             if(PddLoginSession.hasCredentials(CookiePairs.parse(SessionCookies.current("pdd"))))verifyLiveSession(true)
@@ -280,6 +304,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
             val data=runCatching {JSONObject(org.json.JSONTokener(raw).nextValue() as String)}.getOrNull() ?: return@evaluateJavascript
             val result=data.optJSONObject("status") ?: return@evaluateJavascript
             val stage=result.optString("stage")
+            PddDiagnostics.login(this,"官方授权状态",mapOf("stage" to stage,"http" to result.optInt("http").toString(),"code" to result.optString("code"),"scanned" to data.optBoolean("scanned").toString(),"credentialPresent" to hasCredentials.toString()))
             state.text=if(qrExpired)"二维码已过期，请重新获取后在原 App 扫码授权。" else when(stage) {
                 "rejected"->"扫码登录未完成，请重新扫码。"
                 "network_error"->"登录请求未完成，请检查网络后重试。"
@@ -307,6 +332,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         val now=System.currentTimeMillis()
         if(!foreground || verified || checkingOrderSession || (!manual && now<nextVerificationAt))return
         checkingOrderSession=true;verificationAttempts++;nextVerificationAt=now+PddLoginVerificationPolicy.retryDelay(verificationAttempts)
+        PddDiagnostics.login(this,"检查订单会话",mapOf("attempt" to verificationAttempts.toString(),"manual" to manual.toString()))
         returnedForCheck=true;updateQrActions()
         state.text="正在检查订单页登录状态…"
         CookieManager.getInstance().flush()
@@ -314,6 +340,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
             checkingOrderSession=false;verifier=null
             if(isFinishing || isDestroyed)return@startOrderSessionVerification
             verified=valid && PddLoginSession.hasCredentials(CookiePairs.parse(SessionCookies.current("pdd")))
+            PddDiagnostics.login(this,"订单会话检查结果",mapOf("officialPageAccepted" to valid.toString(),"verified" to verified.toString()))
             updateQrActions()
             if(verified){HubData.prefs(this).edit().remove("pdd_login_diagnostic").apply();state.text="登录已确认，正在绑定…";checkLoginSession()}
             else state.text="请完成官网姓名 / 地址等验证，之后自动检查。"
@@ -330,6 +357,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         web.evaluateJavascript("(function(){var s=window.rawData&&window.rawData.ordersStore;return !!(s&&s.uid&&String(s.uid)!=='0');})()") {valid ->
             if(!foreground || isFinishing || isDestroyed || Uri.parse(web.url.orEmpty()).path!="/orders.html"){checkingDisplayedOrder=false;return@evaluateJavascript}
             verified=valid=="true"
+            if(verified || orderCheckAttempts>=9)PddDiagnostics.login(this,"可见订单页检查",mapOf("verified" to verified.toString(),"attempt" to (orderCheckAttempts+1).toString()))
             if(verified){checkingDisplayedOrder=false;checkLoginSession()}
             else if(++orderCheckAttempts<10)qrHandler.postDelayed({readDisplayedOrder()},700)
             else {
@@ -341,6 +369,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
     }
 
     override fun onCreate(savedInstanceState:android.os.Bundle?) {
+        if(savedInstanceState==null)PddDiagnostics.beginLogin(this)
         waitingInApp=savedInstanceState?.getBoolean("pdd_waiting",false) ?: false
         qrSaved=savedInstanceState?.getBoolean("pdd_qr_saved",false) ?: false
         returnedForCheck=savedInstanceState?.getBoolean("pdd_returned_check",false) ?: false
@@ -397,9 +426,9 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         var imageUri:Uri?=null
         try {
             val values=ContentValues().apply {
-                put(MediaStore.Images.Media.DISPLAY_NAME,"ParcelHub-PDD-login-${System.currentTimeMillis()}.png")
+                put(MediaStore.Images.Media.DISPLAY_NAME,"dora-inbox-PDD-login-${System.currentTimeMillis()}.png")
                 put(MediaStore.Images.Media.MIME_TYPE,"image/png")
-                put(MediaStore.Images.Media.RELATIVE_PATH,Environment.DIRECTORY_PICTURES+"/ParcelHub")
+                put(MediaStore.Images.Media.RELATIVE_PATH,Environment.DIRECTORY_PICTURES+"/DoraInbox")
                 put(MediaStore.Images.Media.IS_PENDING,1)
             }
             val destination=contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,values)?:error("insert")
@@ -409,6 +438,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
             runOnUiThread {
                 if(isFinishing || isDestroyed)return@runOnUiThread
                 qrSaved=true;returnedForCheck=false
+                PddDiagnostics.login(this,"官方二维码已保存")
                 finishSaving("二维码已保存。拼多多首页扫一扫 → 相册 → 选最新图片 → 确认登录，然后返回哆啦收件箱。")
                 val launch=packageManager.getLaunchIntentForPackage("com.xunmeng.pinduoduo")
                 if(launch!=null)try {waitingInApp=true;startActivity(launch)}catch(_:Exception){
@@ -430,6 +460,7 @@ open class PddLoginActivity : PlatformLoginActivity("pdd") {
         foreground=true
         super.onResume()
         if(waitingInApp && ::saveButton.isInitialized) {
+            PddDiagnostics.login(this,"从拼多多返回，继续检查")
             // Do not reload: the original official page must redeem the same QR ticket.
             web.onResume()
             returnedForCheck=true;updateQrActions()

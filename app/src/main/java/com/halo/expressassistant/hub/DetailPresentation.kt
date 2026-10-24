@@ -36,7 +36,7 @@ object DetailPresentation {
             else->item.logisticsStatus.ifBlank {item.orderStatus.ifBlank {item.stateLabel()}}
         }
         val event=ParcelTime.parse(item.latestTime).takeIf {it>0}?.let(ParcelTime::format).orEmpty()
-        return Summary(GoodsCache.title(goods,item.originalName),goods?.imageUrl.orEmpty(),goods?.count.orEmpty(),status,
+        return Summary(ParcelGroups.title(item,goods),ParcelGroups.image(item,goods),item.orderGoodsCount.ifBlank {goods?.count.orEmpty()},status,
             item.mailNo.takeIf {hasWaybill(item)},if(active)item.pickupCode else "",historical,
             PickupCardInfo.station(item),PickupCardInfo.address(item),item.recipientPhoneTail.takeIf {it.matches(Regex("\\d{4}"))}.orEmpty(),
             event,item.orderCreatedAt.takeIf {it>0}?.let(ParcelTime::format).orEmpty(),
@@ -53,6 +53,7 @@ object DetailPresentation {
         return when(item.source) {
             "jd"->if(hasWaybill(item))JdLogisticsSource.detailUrl(item.mailNo) else JdLogisticsSource.LIST_URL
             "pdd"->if(item.queryChannel.matches(Regex("[A-Za-z0-9_-]{8,80}")))PddTraceFetcher.TRACE_PAGE+order else PddListFetcher.ORDER_PAGE
+            "douyin"->DouyinOrderPayload.waybill(item.jumpLinks,item.queryChannel)?.officialUrl
             "taobao"->if(item.queryChannel.matches(Regex("[0-9]{8,32}")))TbOrders.SSR_DETAIL_PAGE+order else TbWebOrders.PAGE
             else->null
         }

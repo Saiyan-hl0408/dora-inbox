@@ -6,7 +6,7 @@ import kotlinx.serialization.json.*
 object TrackingFields {
     data class Metadata(val waybill:String,val company:String)
     val numberKeys=setOf("tracking_no","tracking_number","trackingNo","mailNo","mail_no","express_no","expressNo","logistics_no","waybill_no","waybillCode","waybillNo","trackingNumber","logistics_sn","delivery_no")
-    val companyKeys=setOf("logistics_company_short_name","logisticsCompanyName","logistics_company_name","shipping_company","express_company_name","company_name","express_company")
+    val companyKeys=setOf("logisticsCompanyName","logistics_company_name","shippingName","shipping_name","shipping_company","express_company_name","company_name","express_company","logistics_company_short_name")
     fun read(raw:String):Metadata {
         val obj=runCatching {Json.parseToJsonElement(raw)}.getOrNull() ?: return Metadata("","")
         fun find(value:JsonElement,keys:Set<String>,depth:Int):String {
@@ -25,7 +25,8 @@ object TrackingFields {
             return ""
         }
         val number=find(obj,numberKeys,0).takeIf {it.matches(Regex("[A-Za-z0-9]{8,32}"))}.orEmpty()
-        val company=find(obj,companyKeys,0).takeIf {it.any(Char::isLetter) && it!="拼多多快递"}.orEmpty()
+        val company=find(obj,companyKeys-"logistics_company_short_name",0).ifBlank {find(obj,setOf("logistics_company_short_name"),0)}
+            .takeIf {it.any(Char::isLetter) && it!="拼多多快递"}.orEmpty()
         return Metadata(number,company)
     }
     fun time(raw:String,keys:Set<String>):Long {

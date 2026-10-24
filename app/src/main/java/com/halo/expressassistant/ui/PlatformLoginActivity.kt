@@ -74,8 +74,9 @@ open class PlatformLoginActivity(private val channel:String):Activity() {
     private var pageFailed=false
     private val revealLoading=Runnable {if(pageLoading)loading.visibility=View.VISIBLE}
     private val title get()=HubData.channels[channel].orEmpty()
-    private val officialHost get()=when(channel){"jd"->"jd.com";"taobao"->"taobao.com";else->"yangkeduo.com"}
+    private val officialHost get()=when(channel){"jd"->"jd.com";"taobao"->"taobao.com";"douyin"->"douyin.com";else->"yangkeduo.com"}
     private val loginUrl get()=when(channel) {
+        "douyin"->com.halo.expressassistant.api.DouyinOrders.HOME
         "jd"->JdLogisticsSource.LOGIN_URL
         "taobao"->"https://login.m.taobao.com/login.htm?redirectURL=https%3A%2F%2Fmy.m.taobao.com%2FmyTaobao.htm"
         else->"https://mobile.yangkeduo.com/login.html"
@@ -166,7 +167,9 @@ open class PlatformLoginActivity(private val channel:String):Activity() {
         web.settings.apply {javaScriptEnabled=true;domStorageEnabled=true;databaseEnabled=true;useWideViewPort=true;loadWithOverviewMode=true;allowFileAccess=false;allowContentAccess=false;setSupportMultipleWindows(true)}
         configureLoginWebView(web)
         web.setOnTouchListener {view,event->
-            if(channel=="pdd" && requiresExpandedOfficialPage) {
+            // Keep a JD page drag in WebView even when a finger drifts vertically.
+            // The enclosing ScrollView must not cancel the official page's gesture.
+            if(channel=="jd" || (channel in setOf("pdd","douyin") && requiresExpandedOfficialPage)) {
                 when(event.actionMasked) {
                     MotionEvent.ACTION_DOWN,MotionEvent.ACTION_MOVE->view.parent.requestDisallowInterceptTouchEvent(true)
                     MotionEvent.ACTION_UP,MotionEvent.ACTION_CANCEL->view.parent.requestDisallowInterceptTouchEvent(false)
@@ -215,7 +218,7 @@ open class PlatformLoginActivity(private val channel:String):Activity() {
         val capability=LinearLayout(this).apply {gravity=Gravity.CENTER_VERTICAL;minimumHeight=dp(48);setPadding(dp(13),dp(10),dp(13),dp(10));background=OfficialFlowUi.rounded(this@PlatformLoginActivity,Color.WHITE,13)}
         capability.tag="binding-capability"
         capability.addView(ImageView(this).apply {setImageDrawable(HubIcon(if(channel=="jd")"truck" else "identity",HubUi.muted,dp(20)))},LinearLayout.LayoutParams(dp(20),dp(20)).apply {rightMargin=dp(8)})
-        capability.addView(OfficialFlowUi.text(this,when(channel){"jd"->"收件列表验证";"pdd"->"订单页验证";else->"授权与能力状态"},12.7f),LinearLayout.LayoutParams(0,-2,1f))
+        capability.addView(OfficialFlowUi.text(this,when(channel){"jd"->"收件列表验证";"pdd"->"订单页验证";"douyin"->"商城订单验证";else->"授权与能力状态"},12.7f),LinearLayout.LayoutParams(0,-2,1f))
         capabilitySummary=OfficialFlowUi.text(this,"待检查",11.5f,false,HubUi.muted);capability.addView(capabilitySummary)
         capability.addView(ImageView(this).apply {setImageDrawable(HubIcon("chevron",HubUi.muted,dp(15)))},LinearLayout.LayoutParams(dp(15),dp(18)).apply {leftMargin=dp(8)})
         body.addView(capability,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(12)})
@@ -223,7 +226,7 @@ open class PlatformLoginActivity(private val channel:String):Activity() {
             val message=capabilityStatusText()
             android.app.AlertDialog.Builder(this).setTitle(if(channel=="taobao")"授权与能力状态" else "登录验证").setMessage(message).setPositiveButton("知道了",null).show()
         }
-        val hint=OfficialFlowUi.text(this,when(channel){"jd"->"同步「我收」中本人及关联账号的快递。";"pdd"->"授权完成后返回，登录状态会自动检查。";else->"商城订单读取与菜鸟服务分别验证。"},11.5f,false,HubUi.muted)
+        val hint=OfficialFlowUi.text(this,when(channel){"jd"->"同步「我收」中本人及关联账号的快递。";"pdd"->"授权完成后返回，登录状态会自动检查。";"douyin"->"登录后读取商城订单与运单，完整轨迹暂不可用。";else->"商城订单读取与菜鸟服务分别验证。"},11.5f,false,HubUi.muted)
         hint.tag="binding-hint"
         body.addView(hint,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(14);leftMargin=dp(6);rightMargin=dp(6)})
         body.addView(OfficialFlowUi.text(this,"登录帮助 ›",12f,false,HubUi.accent).apply {tag="binding-help";minimumHeight=dp(44);gravity=Gravity.CENTER_VERTICAL;isClickable=true;isFocusable=true;setOnClickListener {android.app.AlertDialog.Builder(this@PlatformLoginActivity).setTitle("$title 登录帮助").setMessage(loginHelpText).setPositiveButton("知道了",null).show()}},LinearLayout.LayoutParams(-1,-2).apply {leftMargin=dp(6)})
@@ -293,7 +296,7 @@ open class PlatformLoginActivity(private val channel:String):Activity() {
                 (footer?.measuredHeight ?: dp(18))+(footerParams?.topMargin ?: 0)+(footerParams?.bottomMargin ?: 0)+
                 (loginBody?.paddingTop ?: 0)+(loginBody?.paddingBottom ?: 0)
             val viewport=when {
-                channel=="pdd" && verification->maxOf(dp(240),scroll.height-reserved-chrome)
+                (channel=="pdd" || channel=="douyin") && verification->maxOf(dp(240),scroll.height-reserved-chrome)
                 channel=="pdd"->dp(compactOfficialPageHeight)
                 ime->maxOf(dp(240),(scroll.height*.65f).toInt())
                 else->maxOf(dp(420),minOf(dp(512),(scroll.height*.72f).toInt()))

@@ -69,7 +69,11 @@
     return true;
   };
   state.verifyAccount = async function () {
-    if (!window.lib || !window.lib.mtop) return false;
+    const readyUntil = Date.now() + 6000;
+    while (!window.lib || !window.lib.mtop || typeof window.lib.mtop.request !== 'function') {
+      if (Date.now() >= readyUntil) return false;
+      await new Promise(resolve => setTimeout(resolve, 120));
+    }
     try {
       const r = await window.lib.mtop.request({api:'mtop.cainiao.pickup.search.queryXnPickUpUserPhoneList',v:'1.0',
         data:{source:'XY',stationType:'XY'},type:'get',dataType:'json',H5Request:true,timeout:8000,

@@ -11,12 +11,14 @@
 | `upstream-identical` | 和已知上游文件逐字节相同 | 继续原许可，无本项目新增商业限制 |
 | `upstream-derived-with-project-changes` | 与 ExpressAssistant 同路径有差异 | 上游表达 MIT；可识别的自有新增表达才适用非商业许可 |
 | `cross-path-upstream-derived-with-project-changes` | 跨路径提取/改写的已识别上游表达 | 同样拆分，不能因文件新增而把第三方代码转为受限专有贡献 |
+| `vendored-third-party` | 随源码附带的第三方库原件 | 继续第三方原许可，不纳入项目商业限制 |
 | `project-specific-candidate-not-proof-of-exclusive-authorship` | 未发现相同路径，或本次导出的新占位资源/代码等 | 仅就许可人实际拥有或可授权的新增表达提供非商业许可；已知或后续确认的第三方片段仍优先适用第三方原许可 |
 
 项目新增功能主要集中在 `hub/` 中的聚合 UI、同步覆盖、历史策略、取件信息处理和测试，以及 `ui/` 中新增的绑定/会话核验与网页采集协调。这一说明不把这些目录整体确认为独占原创。已识别跨路径来源特别包括：
 
 - `hub/IdentityRoutes.kt` 的路由/入口来源涉及 Pickup Code Launcher 的 `Destination.java` 及 Parcel 的 `util/ThirdPartyEntry.kt`：相关原表达继续 MIT。
 - `hub/JdLogisticsParser.kt` 中从 ExpressAssistant 的 `ui/JdTrackFetcher.kt` 提取/改写的解析表达：原表达继续 MIT；只对可识别的本项目新增表达适用自定义条款。
+- `BackgroundSyncScheduler.kt` 从 ExpressAssistant 的 `App.kt` 迁移的 WorkManager 调度表达继续 MIT；新增项目行为仅在实际有权授权的范围内适用项目许可。
 - 短小通用语法、常见协程/JSON/WebView 样式和相同官方 URL 的 token 相似性不自动证明抄袭或权属；相似性记录保留供进一步核对。
 
 来源比对基准均在机器清单 `upstream_commits` 中固定提交号：
@@ -28,6 +30,8 @@
 MIT 原文完整保存在 `LICENSES/MIT-*.txt`。原源码中已有的版权、许可头继续保留。上游 README 中若有“禁止商用”等与 MIT 文本不一致的宣传，不作为撤回上游 MIT 商业权利的依据。
 
 ## 非应用源码
+
+2026-10-25 更新：`app/src/main/assets/JsBarcode.code128.min.js` 是 Johan Lindell 的 JsBarcode 3.12.3，`qrcode-generator.js` 是 Kazuhiko Arase 的 qrcode-generator 2.0.4；两者为独立第三方 MIT 软件，完整许可证分别在 `LICENSES/MIT-JsBarcode.txt`、`LICENSES/MIT-qrcode-generator.txt`，固定提交/哈希见 `docs/research/identity-renderer-licenses-2026-10-25.*`。它们不是本项目原创，项目非商业条件不限制其原MIT权利。
 
 - `rice_paper.png`：openhanako 的 Apache-2.0 素材，哈希/固定提交见第三方声明；不属于本项目受限原创素材。
 - `gradle/wrapper/gradle-wrapper.jar`：官方 Gradle 8.13 工具，附其 LICENSE/NOTICE；原 wrapper 脚本保留版权头。项目非商业条件不限制其独立使用。

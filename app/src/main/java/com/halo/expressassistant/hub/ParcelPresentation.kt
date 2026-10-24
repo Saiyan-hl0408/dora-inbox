@@ -6,6 +6,13 @@ import com.halo.expressassistant.data.ExpressItem
 object ParcelPresentation {
     enum class Stage { PICKUP, TRANSIT, CLOSED, AFTERSALE, NOT_SHIPPED, UNVERIFIED }
     fun stage(item: ExpressItem): Stage {
+        if(item.source=="douyin") {
+            if(listOf("退款","售后","退货","取消","交易关闭","订单关闭").any(item.orderStatus::contains))return Stage.AFTERSALE
+            ParcelStatusAliases.stage(item.logisticsStatus)?.let {return it}
+            if(listOf("交易完成","交易成功","已完成","待评价","已评价").any(item.orderStatus::contains))return Stage.CLOSED
+            if(ParcelStatusAliases.packing.any(item.orderStatus::contains))return Stage.NOT_SHIPPED
+            return Stage.UNVERIFIED
+        }
         if(item.source=="taobao") {
             if(listOf("退款","售后","退货","取消","交易关闭","订单关闭").any(item.orderStatus::contains))return Stage.AFTERSALE
             ParcelStatusAliases.stage(item.logisticsStatus)?.let {return it}
@@ -13,6 +20,8 @@ object ParcelPresentation {
         if(item.source=="jd" && item.stateName=="旧版状态待核实")return Stage.UNVERIFIED
         if(item.source=="pdd") {
             if(listOf("退款","售后","退货","取消","交易关闭","订单关闭").any(item.orderStatus::contains))return Stage.AFTERSALE
+            val latestAt=ParcelTime.parse(item.latestTime)
+            if(latestAt>0 && latestAt>=item.statusUpdatedAt && PddLogistics.forwarding(item.latestText))return Stage.TRANSIT
             val explicit=item.logisticsStatus.ifBlank {if(item.stateName=="已签收" || item.orderStatus.startsWith("已签收"))"已签收" else ""}
             PddLogistics.stage(explicit)?.let {return it}
         }
@@ -45,19 +54,21 @@ object ParcelPresentation {
         return Stage.TRANSIT
     }
     fun eventTime(item:ExpressItem):Long=when(stage(item)) {
-        Stage.CLOSED->if(item.source in setOf("pdd","taobao","cainiao") || (item.source=="jd" && item.queryChannel.startsWith("https://kd.jd.com/express/orderDetail")))item.completedAt else item.completedAt.takeIf {it>0} ?: ParcelTime.parse(item.latestTime).takeIf {it>0} ?: item.statusUpdatedAt.takeIf {it>0} ?: item.orderCreatedAt
+        Stage.CLOSED->if(item.source in setOf("pdd","taobao","cainiao","douyin") || (item.source=="jd" && item.queryChannel.startsWith("https://kd.jd.com/express/orderDetail")))item.completedAt else item.completedAt.takeIf {it>0} ?: ParcelTime.parse(item.latestTime).takeIf {it>0} ?: item.statusUpdatedAt.takeIf {it>0} ?: item.orderCreatedAt
         Stage.PICKUP->item.arrivedAt.takeIf {it>0} ?: item.statusUpdatedAt.takeIf {it>0} ?: ParcelTime.parse(item.latestTime).takeIf {it>0} ?: item.orderCreatedAt
         Stage.TRANSIT,Stage.NOT_SHIPPED->item.orderCreatedAt.takeIf {it>0} ?: item.statusUpdatedAt.takeIf {it>0} ?: ParcelTime.parse(item.latestTime)
         else->item.statusUpdatedAt.takeIf {it>0} ?: ParcelTime.parse(item.latestTime).takeIf {it>0} ?: item.orderCreatedAt
     }
     fun recent(items: List<ExpressItem>, collectedAt: Map<String, Long>, limit: Int? = 3, days:Int?=null,now:Long=System.currentTimeMillis()): List<ExpressItem> {
         val since=days?.let {ParcelTime.cutoff(it,now)} ?: 0
-        val result = items.filter { (collectedAt.containsKey(it.mailNo) || stage(it)==Stage.CLOSED) && stage(it)!=Stage.AFTERSALE && (days==null || (collectedAt[it.mailNo] ?: eventTime(it))>=since) }.sortedWith(
-            compareByDescending<ExpressItem> { collectedAt[it.mailNo] ?: eventTime(it) }.thenBy { it.mailNo })
+        fun rangeTime(item:ExpressItem)=collectedAt[item.mailNo] ?: if(limit==null && item.source=="douyin" && item.completedAt==0L)item.orderCreatedAt else eventTime(item)
+        val result = items.filter { (collectedAt.containsKey(it.mailNo) || stage(it)==Stage.CLOSED) && stage(it)!=Stage.AFTERSALE && (days==null || rangeTime(it)>=since) }.sortedWith(
+            compareByDescending<ExpressItem> { rangeTime(it) }.thenBy { it.mailNo })
         return if (limit == null) result else result.take(limit)
     }
     fun arrivalTime(item:ExpressItem):Long=item.arrivedAt.takeIf {it>0} ?: if(stage(item)==Stage.PICKUP)ParcelTime.parse(item.latestTime) else 0
     fun historySubtitle(item:ExpressItem,collectedAt:Long?):String {
+        if(item.source=="douyin" && collectedAt==null && item.completedAt==0L)return "${ParcelTime.format(item.orderCreatedAt)} 下单 · ${item.orderStatus} · 签收时间未提供"
         if(collectedAt!=null)return "${ParcelTime.format(collectedAt)} · 本机标记已取"
         if(item.source=="pdd" && item.orderStatus.contains("待确认收货"))return if(item.completedAt>0)
             "${ParcelTime.format(item.completedAt)} · 已签收 · 待确认收货" else "已签收 · 待确认收货 · 签收时间未提供"

@@ -1,5 +1,7 @@
 # 构建说明
 
+当前公开快照：`0.9.9-source / versionCode 30`，功能对应个人加固版 v0.9.9-fix1。以下环境未变；本轮构建和417项单元测试通过。正式配置 `ENABLE_DOUYIN=false`，未导出 douyinTest/uiPreview 实验入口，不把实验代码列为正式平台支持。
+
 ## 环境
 
 | 项目 | 要求 |

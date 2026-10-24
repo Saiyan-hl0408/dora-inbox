@@ -18,6 +18,8 @@ import androidx.webkit.WebViewCompat
 import com.halo.expressassistant.data.ExpressItem
 import com.halo.expressassistant.data.JdGoods
 import com.halo.expressassistant.data.Store
+import com.halo.expressassistant.hub.PddDiagnostics
+import com.halo.expressassistant.hub.PddDiagnosticPayload
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -123,6 +125,7 @@ object PddListFetcher {
         onBatch: ((List<ExpressItem>, Map<String, JdGoods>) -> Unit)? = null
     ) {
         val captures = ArrayList<Pair<String, String>>()
+        val listStartedAt=System.currentTimeMillis()
         val window=com.halo.expressassistant.hub.SyncLedger.window(act,"pdd",account?.id.orEmpty())
         val scope=com.halo.expressassistant.hub.PddListScope(com.halo.expressassistant.hub.ParcelTime.cutoff(window.days,window.now),Store.items(act).filter {it.source=="pdd" && it.accountId==account?.id.orEmpty()},com.halo.expressassistant.hub.ParcelTime.cutoff(com.halo.expressassistant.hub.HistoryRangePolicy.MAX_DAYS,window.now))
         com.halo.expressassistant.hub.HubData.prefs(act).edit().remove("pdd_paging_diagnostic").apply()
@@ -148,6 +151,7 @@ object PddListFetcher {
         cm.setAcceptCookie(true)
         cm.setAcceptThirdPartyCookies(w, true)
         val pddCookies = account?.let { Store.cookieOf(it.payload) } ?: Store.pddCookies(act)
+        PddDiagnostics.note(act,"开始读取订单列表",mapOf("accountRef" to PddDiagnosticPayload.ref(account?.id.orEmpty()),"days" to window.days.toString(),"since" to window.since.toString(),"credentialPresent" to PddLoginSession.hasCredentials(com.halo.expressassistant.hub.CookiePairs.parse(pddCookies)).toString(),"uaProfile" to "Android Mobile Chrome126"))
         PddCapture.setCookiesFor(act, pddCookies)
         PddCapture.attach(act, w)
 
@@ -158,11 +162,20 @@ object PddListFetcher {
             handler.postDelayed({
                 com.halo.expressassistant.hub.WebFetchRegistry.release(w)
                 PddCapture.detach(w)
-                val (rawItems, rawGoods) = convert(captures, account)
+                val excludedIds=HashSet<String>()
+                val (rawItems, rawGoods) = convert(act,captures, account) {id,_->excludedIds.add(id)}
                 val items=scope.select(rawItems)
                 val goods=rawGoods.filterKeys {number->items.any {it.mailNo==number}}
+                PddDiagnostics.items(act,"列表原始解析",rawItems)
+                PddDiagnostics.items(act,"时间范围筛选后",items)
+                val selectedIds=items.mapTo(HashSet()){it.id}
+                val omitted=rawItems.map(scope::dated).filter {it.id !in selectedIds}
+                PddDiagnostics.selection(act,rawItems.map(scope::dated),selectedIds,scope.since)
+                PddDiagnostics.note(act,"范围过滤说明",mapOf("droppedTotal" to omitted.size.toString(),"droppedActive" to omitted.count {com.halo.expressassistant.hub.ParcelPresentation.stage(it) in setOf(com.halo.expressassistant.hub.ParcelPresentation.Stage.TRANSIT,com.halo.expressassistant.hub.ParcelPresentation.Stage.PICKUP)}.toString(),"oldestCandidate" to com.halo.expressassistant.hub.ParcelTime.format(scope.oldestCandidate),"reason" to "按购买日期范围及已缓存未完成订单保留规则"))
+                PddDiagnostics.note(act,"列表阶段结束",mapOf("accountRef" to PddDiagnosticPayload.ref(account?.id.orEmpty()),"captured" to captures.size.toString(),"goods" to goods.size.toString(),"elapsedMs" to (System.currentTimeMillis()-listStartedAt).toString(),"result" to (err ?: "列表已完成")))
                 com.halo.expressassistant.hub.HubData.prefs(act).edit().putString("pdd_list_diagnostic",
-                    "查询：官方商城订单；捕获 ${captures.size} 个响应；原始解析 ${rawItems.size} 条；范围内 ${items.size} 条订单、${goods.size} 份商品。\n结果：${err ?: "已到查询边界或列表末尾"}\n"+
+                    "查询：官方商城订单；捕获 ${captures.size} 个响应；原始解析 ${rawItems.size} 条；范围内 ${items.size} 条订单、${goods.size} 份商品。"+
+                        (if(excludedIds.isNotEmpty())"\n已排除 ${excludedIds.size} 笔多多买菜业务订单，不计入普通快递读取结果。" else "")+"\n结果：${err ?: "已到查询边界或列表末尾"}\n"+
                         com.halo.expressassistant.hub.HubData.prefs(act).getString("pdd_paging_diagnostic","").orEmpty()).apply()
                 Log.i(TAG, "finish items=${items.size} goods=${goods.size} err=$err")
                 onDone(result ?: items.takeIf {it.isNotEmpty() || err==null}, goods, err)
@@ -174,6 +187,7 @@ object PddListFetcher {
                 if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return
                 Log.i(TAG, "official order page loaded")
                 if (url.contains("login.html") || url.contains("passport") || url.contains("/login") || url.contains("login?")) {
+                    PddDiagnostics.note(act,"列表被要求重新登录",mapOf("path" to PddDiagnosticPayload.endpoint(url)))
                     finish(null,"拼多多会话需重新验证，请通过官方扫码登录恢复会话。")
                     return
                 }
@@ -228,9 +242,11 @@ object PddListFetcher {
         var unresolvedDates=false
         val paging=com.halo.expressassistant.hub.PagingProgress()
         val emitted=HashSet<String>();val emittedGoods=HashSet<String>()
+        val diagnosedResponses=HashSet<String>()
         fun done(orders:List<ExpressItem>,warning:String?=null) {
             scrolling=false
             val complete=historyComplete && activeComplete && !unresolvedDates
+            PddDiagnostics.note(w.context,"分类与边界检查",mapOf("historyComplete" to historyComplete.toString(),"activeComplete" to activeComplete.toString(),"scanActive" to scanActive.toString(),"unresolvedDates" to unresolvedDates.toString(),"pollRounds" to rounds.toString(),"phaseResponses" to phaseResponses.toString(),"ignoredResponses" to ignoredResponses.toString(),"checkpointAdvanced" to complete.toString(),"warning" to warning.orEmpty()))
             com.halo.expressassistant.hub.HubData.prefs(w.context).edit().putString("pdd_paging_diagnostic",
                 "范围：近 ${window.days} 天；实际边界 ${com.halo.expressassistant.hub.ParcelTime.format(window.since)}；轮询 $rounds 次；当前分类响应 $phaseResponses 个；忽略搜索/其他分类/无效响应 $ignoredResponses 个；历史边界 ${if(historyComplete)"完成" else "未完成"}；待收货分类 ${if(activeComplete)"完成" else "未完成"}。").apply()
             if(complete)com.halo.expressassistant.hub.SyncLedger.stage("pdd",account?.id.orEmpty(),orders,window)
@@ -247,6 +263,11 @@ object PddListFetcher {
                         synchronized(captures) {
                             for(capture in batch) {
                                 val url=capture.url;val body=capture.body
+                                if((url.contains("order_list") || url.startsWith("ordersStore")) && diagnosedResponses.add(PddDiagnosticPayload.ref(url+body+capture.type+capture.event+capture.elapsedMs))) {
+                                    PddDiagnostics.response(w.context,url,body,capture.type,capture.page,capture.validOrders,if(activePhase)"unreceived" else "all",capture.requestBody)
+                                    PddDiagnostics.note(w.context,"订单响应识别",mapOf("phase" to if(activePhase)"unreceived" else "all","type" to capture.type,"page" to capture.page.toString(),"recognized" to capture.validOrders.toString(),"orderCount" to capture.orderCount.toString(),"matchesPhase" to capture.matchesPhase(activePhase).toString(),"http" to capture.http.toString(),"elapsedMs" to capture.elapsedMs.toString(),"event" to capture.event,"requestFormat" to capture.requestFormat,"requestSchema" to PddDiagnosticPayload.schema(capture.requestBody).toString(),"hasMore" to com.halo.expressassistant.hub.PddPagingPolicy.hasMore(body).toString()))
+                                }
+                                if(capture.event=="start")continue
                                 if(!PddCapture.looksRelevant(url,body))continue
                                 if(url.contains("order_list")) {
                                     // Search/refresh use the same endpoint. Only a valid full page
@@ -257,7 +278,7 @@ object PddListFetcher {
                                 if(captures.none {it.first==url && it.second==body})captures.add(url to body)
                             }
                         }
-                        val (rawOrders,rawGoods)=convert(captures,account)
+                        val (rawOrders,rawGoods)=convert(w.context,captures,account)
                         val orders=scope.select(rawOrders)
                         val numbers=orders.mapTo(HashSet()){it.mailNo}
                         val allGoods=rawGoods.filterKeys {it in numbers}
@@ -269,8 +290,10 @@ object PddListFetcher {
                             if(fresh.isNotEmpty())onBatch(fresh,freshGoods)
                         }
                         val response=latestOrderResponse
-                        val lastPage=response?.let {convert(listOf(it.url to it.body),account).first.map(scope::dated)}.orEmpty()
-                        if(receivedOrderPage && response!=null && response.orderCount>0 && lastPage.isEmpty()){done(orders,"拼多多返回订单但格式未识别，未推进同步范围 [PDD-ORDER-FORMAT]");return@readPages}
+                        val excludedOnPage=HashSet<String>()
+                        val lastPage=response?.let {convert(w.context,listOf(it.url to it.body),account) {id,_->excludedOnPage.add(id)}.first.map(scope::dated)}.orEmpty()
+                        if(receivedOrderPage && response!=null && response.orderCount>0 && lastPage.isEmpty() &&
+                            !com.halo.expressassistant.hub.PddOrderBusiness.pageFullyExcluded(response.orderCount,excludedOnPage.size)){done(orders,"拼多多返回订单但格式未识别，未推进同步范围 [PDD-ORDER-FORMAT]");return@readPages}
                         if(receivedOrderPage)unknownDatePages=if(lastPage.isNotEmpty() && lastPage.all {it.orderCreatedAt==0L})unknownDatePages+1 else 0
                         if(receivedOrderPage && lastPage.any {it.orderCreatedAt==0L})unresolvedDates=true
                         if(unknownDatePages>=3){done(orders,"拼多多未提供可识别的订单日期，已停止继续翻旧单；未推进同步范围 [PDD-DATE-MISSING]");return@readPages}
@@ -278,6 +301,7 @@ object PddListFetcher {
                         // BOTH lists stop at their purchase-date boundary. Older cached
                         // unfinished orders refresh individually, not by walking all history.
                         val reached=response!=null && (end || com.halo.expressassistant.hub.PddPagingPolicy.listPhaseBoundary(lastPage,window.since,activePhase,checkpoint.reached(lastPage)))
+                        PddDiagnostics.note(w.context,"分页轮询",mapOf("phase" to if(activePhase)"unreceived" else "all","round" to rounds.toString(),"newResponse" to receivedOrderPage.toString(),"acceptedResponses" to phaseResponses.toString(),"latestPage" to (response?.page ?: 0).toString(),"visibleEnd" to (pageEnd=="true").toString(),"responseEnd" to (response?.let {com.halo.expressassistant.hub.PddPagingPolicy.hasMore(it.body)}).toString(),"boundaryReached" to reached.toString()))
                         if(!reached && paging.stalled(phaseResponses)){done(orders,"拼多多分页停滞；已保存成功项，未推进同步范围 [PDD-PAGING-STALLED]");return@readPages}
                         if(reached) {
                             if(!activePhase) {
@@ -285,6 +309,7 @@ object PddListFetcher {
                                 if(scanActive) {
                                     activePhase=true;latestOrderResponse=null;phaseResponses=0;unknownDatePages=0
                                     w.evaluateJavascript(TAP_TAB_JS.replace("__TAB__","待收货")) {result->
+                                        PddDiagnostics.note(w.context,"切换待收货分类",mapOf("clicked" to result.contains("CLICKED").toString()))
                                         if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return@evaluateJavascript
                                         if(result.contains("CLICKED")){rounds=0;paging.reset();handler.postDelayed(this,3000)}
                                         else done(orders,"拼多多未找到待收货分类，已保存当前订单，未推进同步范围 [PDD-TAB-MISSING]")
@@ -337,10 +362,22 @@ object PddListFetcher {
     /* ─────────────── 容错解析（候选键 + 递归扫描） ─────────────── */
 
     private fun convert(
+        context:Context,
         captures: List<Pair<String, String>>,
-        account: com.halo.expressassistant.data.BoundAccount?
+        account: com.halo.expressassistant.data.BoundAccount?,
+        onExcluded:(String,String)->Unit={_,_->}
     ): Pair<List<ExpressItem>, Map<String, JdGoods>> {
-        return com.halo.expressassistant.hub.PddOrderPayload.read(captures,account?.id.orEmpty(),account?.label.orEmpty())
+        val excluded=linkedMapOf<String,String>()
+        val result=com.halo.expressassistant.hub.PddOrderPayload.read(captures,account?.id.orEmpty(),account?.label.orEmpty()) {id,reason->
+            excluded[id]=reason;onExcluded(id,reason)
+        }
+        if(excluded.isNotEmpty() && account!=null) {
+            val added=Store.excludePddNonParcelOrders(context,account.id,excluded.keys)
+            if(added>0)PddDiagnostics.note(context,"排除非快递业务订单",mapOf(
+                "accountRef" to PddDiagnosticPayload.ref(account.id),"count" to added.toString(),
+                "reason" to "官方多多买菜详情链接；不进入普通快递列表、日期检查或物流队列；已归档旧占位项"))
+        }
+        return result
     }
 
 }

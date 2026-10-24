@@ -5,6 +5,21 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PddPayloadTest {
+    @Test fun bothObservedListStructuresUseExplicitPhysicalNodesForTransitAndPickup() {
+        for((status,stage) in listOf("运输中" to ParcelPresentation.Stage.TRANSIT,"待取件" to ParcelPresentation.Stage.PICKUP)) {
+            val camel="""{"orders":[{"orderSn":"owned","orderTime":1792825139,"orderStatusPrompt":"待收货","express":{"statusPrompt":"$status","timestamp":1792825139,"lastTrace":"当前物流说明"}}]}"""
+            val snake="""{"orders":[{"order_sn":"owned","order_time":1792825139,"order_status_prompt":"待收货","express":{"status_prompt":"$status","timestamp":1792825139,"last_trace":"当前物流说明"}}]}"""
+            for(raw in listOf(camel,snake)) {
+                val item=PddOrderPayload.read(listOf("/api/order_list_v4" to raw),"owner").first.single()
+                assertEquals(stage,ParcelPresentation.stage(item))
+                assertTrue(item.orderCreatedAt>0)
+                assertTrue(PddPagingPolicy.refreshInScope(item,0,false))
+            }
+        }
+        val unknown=PddOrderPayload.read(listOf("/api/order_list_v4" to """{"orders":[{"order_sn":"unknown","order_status":3,"order_status_prompt":"待收货"}]}""")).first.single()
+        assertEquals(ParcelPresentation.Stage.UNVERIFIED,ParcelPresentation.stage(unknown))
+        assertEquals(0L,unknown.completedAt)
+    }
     @Test fun headerPickupCodeIsDifferentFromWaybillTailOrMaskedPhoneHint() {
         fun snapshot(header:String)=PddDetailPayload.read(kotlinx.serialization.json.buildJsonObject {
             put("text",kotlinx.serialization.json.JsonPrimitive("$header\n韵达快递 : 465740832195331\n待取件 2026-10-07 11:21:18\n请领取"))
@@ -90,7 +105,7 @@ class PddPayloadTest {
         assertFalse(PddPagingPolicy.historyBoundary(listOf(item),ParcelTime.parse("2026-09-13")))
         val unverified=item.copy(logisticsStatus="",stateName="待收货",orderStatus="待收货",latestText="待收货",isOrderNumber=true)
         assertTrue(PddPagingPolicy.refreshInScope(unverified,ParcelTime.parse("2026-09-13"),false,freshAwaitingReceipt=true))
-        assertFalse(PddPagingPolicy.refreshInScope(unverified,ParcelTime.parse("2026-09-13"),false))
+        assertTrue(PddPagingPolicy.refreshInScope(unverified,ParcelTime.parse("2026-09-13"),false))
     }
     @Test fun refundedPhysicalParcelsAndVirtualMonthlyCardsAreNotNormalSignedHistory() {
         val physical=ExpressItem("refund","","","TEST123456",source="pdd",logisticsStatus="已签收",orderStatus="退款成功",state=3)

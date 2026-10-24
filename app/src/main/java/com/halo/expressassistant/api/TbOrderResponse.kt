@@ -44,7 +44,8 @@ object TbOrderResponse {
                 TbOrders.TbOrder(id,(order["extra"] as? JsonObject)?.text("tradeStatus").orEmpty(),
                     (order["statusInfo"] as? JsonObject)?.text("text").orEmpty(),item?.text("title").orEmpty(),item?.text("pic").orEmpty(),
                     TbOrderTime.created(order),
-                    TrackingFields.time(order.toString(),setOf("confirmTime","endTime","finishTime","receiveTime")))
+                    TrackingFields.time(order.toString(),setOf("confirmTime","endTime","finishTime","receiveTime")),
+                    businessType=(order["extra"] as? JsonObject)?.text("bizType").orEmpty())
             }
             return Page(orders,hasMore)
         }

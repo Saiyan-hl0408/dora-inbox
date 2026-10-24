@@ -32,6 +32,7 @@ class SourceWebActivity:AppCompatActivity() {
             "jd"->listOf("https://kd.jd.com","https://passport.jd.com","https://trade.m.jd.com","https://wqs.jd.com","https://api.m.jd.com","https://www.jd.com","https://m.jd.com","https://plogin.m.jd.com","https://tuihuan.jd.com","https://afs.m.jd.com","https://convenient-h5.jd.com")
             "taobao"->listOf("https://main.m.taobao.com","https://h5api.m.taobao.com","https://m.taobao.com","https://www.taobao.com","https://pages-fast.m.taobao.com")
             "pdd"->listOf("https://mobile.yangkeduo.com","https://yangkeduo.com")
+            "douyin"->listOf("https://www.douyin.com","https://douyin.com","https://login.douyin.com","https://sso.douyin.com")
             else->emptyList()
         }
     }

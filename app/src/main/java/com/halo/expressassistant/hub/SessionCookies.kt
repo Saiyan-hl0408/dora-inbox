@@ -58,6 +58,12 @@ object SessionCookies {
             val live=CookiePairs.parse(cm.getCookie("https://mobile.yangkeduo.com").orEmpty())
             if(CookiePairs.samePddAccount(live,CookiePairs.parse(accountCookies)) && com.halo.expressassistant.ui.PddLoginSession.hasCredentials(live))return
         }
+        if(channel=="douyin" && account!=null) {
+            if(DouyinSessionPolicy.sameOwner(accountCookies,current(channel)) && DouyinSessionPolicy.hasCredentials(current(channel)))return
+            clearChannel(channel)
+            for(domain in domains(channel))for((key,value) in CookiePairs.parse(accountCookies))cm.setCookie(domain,"$key=$value; Path=/; Secure")
+            cm.flush();return
+        }
         if(channel=="jd") {
             val live=CookiePairs.parse(cm.getCookie("https://kd.jd.com").orEmpty())
             // A saved snapshot can be older than the native jar after official SSO renewal.
@@ -74,7 +80,7 @@ object SessionCookies {
     }
     fun clearChannel(channel:String) {
         val cm=CookieManager.getInstance()
-        val root=when(channel){"jd"->".jd.com";"taobao"->".taobao.com";else->".yangkeduo.com"}
+        val root=when(channel){"jd"->".jd.com";"taobao"->".taobao.com";"douyin"->".douyin.com";else->".yangkeduo.com"}
         for(domain in domains(channel))for(key in CookiePairs.parse(cm.getCookie(domain).orEmpty()).keys) {
             cm.setCookie(domain,"$key=; Path=/; Max-Age=0")
             var suffix=android.net.Uri.parse(domain).host.orEmpty()

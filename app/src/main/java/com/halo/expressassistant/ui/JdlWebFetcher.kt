@@ -118,7 +118,7 @@ object JdlWebFetcher {
                             put("now",window.now);put("since",window.since);put("onlyNumber",onlyNumber?.let {JsonPrimitive(it)} ?: JsonNull)
                             put("refresh",JsonArray(refresh.map {JsonPrimitive(it)}))
                             val prefs=HubData.prefs(context)
-                            put("cached",JsonArray(Store.items(context).filter {it.source=="jd" && it.accountId==account.id && HubData.prefs(context).getInt("jd_detail_${account.id}_${it.mailNo}_schema",0)>=21}.map {item->
+                            put("cached",JsonArray(Store.items(context).filter {it.source=="jd" && it.accountId==account.id && !ActiveParcelRefresh.includes(it) && HubData.prefs(context).getInt("jd_detail_${account.id}_${it.mailNo}_schema",0)>=21}.map {item->
                                 val prefix="jd_detail_${account.id}_${item.mailNo}"
                                 buildJsonObject {
                                     put("number",item.mailNo);put("status",prefs.getString(prefix+"_status","").orEmpty())

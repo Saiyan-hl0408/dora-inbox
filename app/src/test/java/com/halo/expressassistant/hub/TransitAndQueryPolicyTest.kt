@@ -9,7 +9,7 @@ class TransitAndQueryPolicyTest {
     @Test fun paidPackingAliasesAppearInTransitButNeverUnpaidVirtualOrCancelledOrders() {
         for(alias in listOf("打包中","备货中","未出库","待出库","待发货")) {
             assertTrue(alias,TransitGroup.includes(order(alias)))
-            assertFalse(alias,PddPagingPolicy.refreshInScope(order(alias),0,false,true))
+            assertTrue(alias,PddPagingPolicy.refreshInScope(order(alias),0,false,true))
         }
         for(status in listOf("待付款","待成团","退款成功","订单取消成功"))assertFalse(status,TransitGroup.includes(order(status)))
         assertFalse(TransitGroup.includes(order("待发货").copy(originalName="省钱月卡")))

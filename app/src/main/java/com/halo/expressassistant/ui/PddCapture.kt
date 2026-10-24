@@ -32,12 +32,14 @@ object PddCapture {
     /** 通用捕获 JS：把 /proxy/api|yangkeduo|pinduoduo 的 XHR/fetch 响应压入 window.name（含请求体 r） */
     const val HOOK_JS = """
         (function(){
-          function pushCap(u, s, r){
+          if(window.__parcelPddCaptureHook)return;window.__parcelPddCaptureHook=true;
+          function pushCap(u, s, r, http, elapsed, event, format){
             try {
               var arr = [];
               if (window.name && window.name.charAt(0) === '[') { try { arr = JSON.parse(window.name); } catch(e){ arr = []; } }
               var o = {u: String(u||'').slice(0,300), b: String(s||'')};
               if (r) o.r = String(r);
+              o.http=Number(http||0);o.elapsed=Number(elapsed||0);o.event=event||'response';o.format=format||'unknown';
               arr.push(o);
               if (arr.length > 500) arr = arr.slice(arr.length - 500);
               window.name = JSON.stringify(arr);
@@ -50,12 +52,16 @@ object PddCapture {
             var args = arguments;
             if (self.__u && /proxy\/api|yangkeduo|pinduoduo/i.test(String(self.__u))) {
               var rb = '';
+              var started=Date.now(),format='empty';
               try {
                 if (args && args.length && args[0] != null) {
                   rb = (typeof args[0] === 'string') ? args[0] : (args[0] instanceof FormData ? '' : JSON.stringify(args[0]));
+                  format=typeof args[0]==='string'?'string':args[0] instanceof FormData?'formdata':'object';
                 }
               } catch(e){}
-              this.addEventListener('load', function(){ try{ pushCap(self.__u, self.responseText, rb); }catch(e){} });
+              if(/order_list/i.test(String(self.__u)))pushCap(self.__u,'{}','',0,0,'start',format);
+              this.addEventListener('load', function(){ try{ pushCap(self.__u, self.responseText, rb,self.status,Date.now()-started,'response',format); }catch(e){} });
+              ['error','timeout','abort'].forEach(function(kind){self.addEventListener(kind,function(){pushCap(self.__u,'{}',rb,self.status,Date.now()-started,kind,format);});});
             }
             return os.apply(this,arguments);
           };
@@ -64,18 +70,20 @@ object PddCapture {
             window.fetch = function(input,init){
               var url = (typeof input === 'string') ? input : (input && input.url) || '';
               var rb = '';
+              var started=Date.now(),format=init&&init.body!=null?(typeof init.body==='string'?'string':'object'):typeof input==='string'?'empty':'Request';
               try {
                 if (init && init.body != null) rb = (typeof init.body === 'string') ? init.body : (init.body instanceof FormData ? '' : JSON.stringify(init.body));
               } catch(e){}
               var p = of.apply(this,arguments);
+              if(/order_list/i.test(url))pushCap(url,'{}','',0,0,'start',format);
               if (p && p.then) {
                 p.then(function(r){
                   try {
                     if (/proxy\/api|yangkeduo|pinduoduo/i.test(url)) {
-                      r.clone().text().then(function(t){ pushCap(url, t, rb); });
+                      r.clone().text().then(function(t){ pushCap(url,t,rb,r.status,Date.now()-started,'response',format); },function(){pushCap(url,'{}',rb,r.status,Date.now()-started,'body-error',format);});
                     }
                   } catch(e){}
-                });
+                },function(){if(/proxy\/api|yangkeduo|pinduoduo/i.test(url))pushCap(url,'{}',rb,0,Date.now()-started,'fetch-error',format);});
               }
               return p;
             };

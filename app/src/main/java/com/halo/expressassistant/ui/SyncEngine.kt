@@ -50,11 +50,18 @@ object SyncEngine {
         val jdOn = Store.accounts(act, Store.CH_JD).any { it.enabled } && "jd" !in skip
         val tbOn = Store.accounts(act, Store.CH_TAOBAO).any { it.enabled && it.taobaoOrdersEnabled } && "taobao" !in skip
         val pddOn = Store.accounts(act, Store.CH_PDD).any { it.enabled } && "pdd" !in skip
+        val douyinOn=com.halo.expressassistant.BuildConfig.ENABLE_DOUYIN && Store.accounts(act,Store.CH_DOUYIN).any {it.enabled} && "douyin" !in skip
         Log.i(TAG, "channels: xiaomi=$xiaomiOn jd=$jdOn tb=$tbOn pdd=$pddOn")
 
         val window=com.halo.expressassistant.hub.SyncWindow(com.halo.expressassistant.hub.HistoryRangePolicy.clamp(com.halo.expressassistant.hub.HubData.prefs(act).getInt("sync_days",com.halo.expressassistant.hub.HistoryRangePolicy.DEFAULT_DAYS)))
+        if(pddOn) {
+            com.halo.expressassistant.hub.PddReadRecovery.prepare(act)
+            com.halo.expressassistant.hub.PddLocationRecovery.prepare(act)
+            com.halo.expressassistant.hub.PddDiagnostics.beginSync(act,if(historyImport)"历史范围读取" else if(automatic)"自动同步" else "手动刷新",window.days)
+        }
         onProgress?.invoke(Progress("读取近 ${window.days} 天记录与未完成包裹"))
-        val oldItems = Store.items(act).associateBy { it.mailNo }
+        val oldSnapshot=Store.items(act)
+        val oldItems = oldSnapshot.associateBy { it.mailNo }
         val statuses = ArrayList<ChannelStatus>()
 
         // ── 小米：逐账号顺序同步（内部合并到 items，先跑保优先级）──
@@ -75,24 +82,38 @@ object SyncEngine {
         }
 
         // ── 京东（WebView）/ 淘宝（HTTP）/ 拼多多（WebView）三路并行；各自内部逐账号 ──
-        val platformTotal=listOf(jdOn,tbOn,pddOn).count {it}
+        val platformTotal=listOf(jdOn,tbOn,pddOn,douyinOn).count {it}
         val platformDone=java.util.concurrent.atomic.AtomicInteger()
         fun progress(label:String){onProgress?.invoke(Progress("$label · 已完成 ${platformDone.get()}/$platformTotal 平台"))}
         fun completed(label:String){platformDone.incrementAndGet();progress("$label 读取结束")}
         val jdDeferred = if (jdOn) async {progress("正在同步京东");fetchJdAll(act,automatic,historyImport).also {completed("京东")}} else null
         val tbDeferred = if (tbOn) async {fetchTbAll(act,window){p->onProgress?.invoke(p.copy(label="${p.label} · 已完成 ${platformDone.get()}/$platformTotal 平台"))}.also {completed("淘宝")}} else null
-        val pddDeferred = if (pddOn) async {progress("正在同步拼多多");fetchPddAll(act,onPddProgress).also {completed("拼多多")}} else null
+        val douyinDeferred=if(douyinOn)async {progress("正在同步抖音商城");fetchDouyinAll(act){progress(it)}.also {completed("抖音商城")}} else null
+        val pddDeferred = if (pddOn) async {
+            progress("正在同步拼多多")
+            fetchPddAll(act,onPddProgress).also {
+                // List batches are already saved with their goods. Classify pending parcels
+                // now instead of waiting for another platform's historical detail requests.
+                val pickupStarted=System.currentTimeMillis()
+                com.halo.expressassistant.hub.PddPickupService.supplement(act) {label->onProgress?.invoke(Progress(label))}
+                com.halo.expressassistant.hub.PddDiagnostics.note(act,"多多取快递阶段结束",mapOf("elapsedMs" to (System.currentTimeMillis()-pickupStarted).toString(),"result" to com.halo.expressassistant.hub.HubData.prefs(act).getString("pdd_pickup_diagnostic","").orEmpty()))
+                completed("拼多多")
+            }
+        } else null
 
         // Apply every returned status even if completion falls outside the visible history.
         // Filtering before merging would leave an old cached pending item pending forever.
         val jdResult = jdDeferred?.await()
         val tbResult = tbDeferred?.await()
         val pddResult = pddDeferred?.await()
+        val douyinResult=douyinDeferred?.await()
         if (jdOn) statuses.add(ChannelStatus("jd", jdResult?.first?.size ?: 0, jdResult?.third))
         if (tbOn) {
             statuses.add(ChannelStatus("taobao", tbResult?.first?.size ?: 0, tbResult?.second))
         }
         if (pddOn) statuses.add(ChannelStatus("pdd", pddResult?.first?.size ?: 0, pddResult?.third))
+        if(douyinOn)statuses.add(ChannelStatus("douyin",douyinResult?.first?.size ?: 0,douyinResult?.third))
+        douyinResult?.second?.takeIf {it.isNotEmpty()}?.let {saveGoods(act,it)}
         // 预缓存京东/拼多多订单商品（保留已优化 shortName）
         jdResult?.second?.takeIf { it.isNotEmpty() }?.let { saveGoods(act, it) }
         pddResult?.second?.takeIf { it.isNotEmpty() }?.let { saveGoods(act, it) }
@@ -109,20 +130,13 @@ object SyncEngine {
         if ((pddResult?.first ?: emptyList()).isEmpty() && pddOn && oldPddCount > 0) {
             Log.w(TAG, "pdd fetch empty/missing -> keep old $oldPddCount")
         }
-        val merged = LinkedHashMap<String, ExpressItem>()
-        (oldItems.values+Store.items(act)).forEach { merged[it.mailNo]=it }
-        for(item in (xiaomiItems.orEmpty()+jdResult?.first.orEmpty()+tbResult?.first.orEmpty()+pddResult?.first.orEmpty())) {
-            val old=oldItems.values.firstOrNull {it.source==item.source && it.id==item.id}
-            val fresh=if(item.isOrderNumber && old!=null && !old.isOrderNumber)item.copy(mailNo=old.mailNo,companyName=item.companyName.ifBlank {old.companyName},isOrderNumber=false) else item
-            if(old!=null && old.mailNo!=fresh.mailNo) {
-                merged.remove(old.mailNo)
+        val merged=com.halo.expressassistant.hub.SyncOrderMerge.combine(oldSnapshot,Store.items(act),
+            xiaomiItems.orEmpty()+jdResult?.first.orEmpty()+tbResult?.first.orEmpty()+pddResult?.first.orEmpty()+douyinResult?.first.orEmpty()) {old,fresh->
                 val goods=Store.jdGoods(act).toMutableMap();goods[old.mailNo]?.let {goods.putIfAbsent(fresh.mailNo,it)};Store.saveJdGoods(act,goods)
             }
-            merged[fresh.mailNo]=fresh
-        }
-        val finalList = merged.values.map { item ->
-            val old = oldItems[item.mailNo] ?: return@map item
-            if(item.source=="pdd" || item.source=="taobao")return@map com.halo.expressassistant.hub.SyncCacheMerge.merge(old,item)
+        val finalList = merged.map { item ->
+            val old = (if(item.source=="pdd")oldSnapshot.firstOrNull {it.source==item.source && it.accountId==item.accountId && it.id==item.id} else oldItems[item.mailNo]) ?: return@map item
+            if(item.source=="pdd" || item.source=="taobao" || item.source=="douyin")return@map com.halo.expressassistant.hub.SyncCacheMerge.merge(old,item)
             // 拼多多：列表最新文案只是状态提示（交易成功/待评价…），
             // 已被物流页回写的真实轨迹（latestText/latestTime）要在同步合并时保留，防止覆盖丢失
             val pddPromptOnly = item.source == "pdd" &&
@@ -219,7 +233,8 @@ object SyncEngine {
                 val now=System.currentTimeMillis()
                 if(com.halo.expressassistant.hub.JdlQueryPolicy.localOnly(automatic,historyImport,
                     com.halo.expressassistant.hub.SyncLedger.isExpanding(act,"jd",account.id),now,
-                    prefs.getLong("jd_sync_success_${account.id}",0),prefs.getLong("jd_sync_attempt_${account.id}",0))) {
+                    prefs.getLong("jd_sync_success_${account.id}",0),prefs.getLong("jd_sync_attempt_${account.id}",0),
+                    Store.items(act).any {it.source=="jd" && it.accountId==account.id && com.halo.expressassistant.hub.ActiveParcelRefresh.includes(it)})) {
                     allItems.addAll(Store.items(act).filter {it.source=="jd" && it.accountId==account.id})
                     continue
                 }
@@ -257,7 +272,7 @@ object SyncEngine {
                 if (cookies.isBlank()) continue
                 val orders = LinkedHashMap<String, TbOrders.TbOrder>()
                 val accountWindow=com.halo.expressassistant.hub.SyncLedger.window(act,"taobao",account.id)
-                val activeCache=Store.items(act).filter {it.source=="taobao" && it.accountId==account.id && (com.halo.expressassistant.hub.ParcelPresentation.stage(it)==com.halo.expressassistant.hub.ParcelPresentation.Stage.PICKUP || com.halo.expressassistant.hub.TransitGroup.includes(it))}
+                val activeCache=Store.items(act).filter {it.source=="taobao" && it.accountId==account.id && com.halo.expressassistant.hub.ActiveParcelRefresh.includes(it)}
                 val activeIds=activeCache.mapTo(HashSet()) {it.queryChannel}
                 var reachedEnd=false
                 var unknownDatePages=0
@@ -304,30 +319,41 @@ object SyncEngine {
                 }
                 if(missingDates)err="部分淘宝订单仍缺少可识别的创建时间；已保留订单并读取物流，未确认的日期不计入范围覆盖 [TB-DATE-PARTIAL]"
                 if(!reachedEnd && err==null)err="已达到淘宝分页预算，保留部分结果；未证明近 ${accountWindow.days} 天已读完"
-                Store.items(act).filter {it.source=="taobao" && it.accountId==account.id && (com.halo.expressassistant.hub.ParcelPresentation.stage(it)==com.halo.expressassistant.hub.ParcelPresentation.Stage.PICKUP || com.halo.expressassistant.hub.TransitGroup.includes(it))}.forEach {old->
+                Store.items(act).filter {it.source=="taobao" && it.accountId==account.id && com.halo.expressassistant.hub.ActiveParcelRefresh.includes(it)}.forEach {old->
                     if(old.queryChannel.isNotBlank())orders.putIfAbsent(old.queryChannel,TbOrders.TbOrder(old.queryChannel,"",old.orderStatus,createdAt=old.orderCreatedAt,completedAt=old.completedAt))
                 }
                 // 2) 过滤有物流的订单（跳过交易关闭/待付款）
                 val withParcels = orders.values.filter {o->
                     val done=listOf("成功","签收","完成","退款","取消","关闭").any(o.statusText::contains)
                     val at=o.completedAt.takeIf {it>0} ?: o.createdAt
-                    !done || at==0L || at>=accountWindow.since
+                    val old=oldItemsForOrder(act,o.orderId,account.id)
+                    com.halo.expressassistant.api.TbOrderShipping.requiresDetail(o,old!=null && !old.isOrderNumber && !old.mailNo.startsWith("ORDER-")) &&
+                        (!done || at==0L || at>=accountWindow.since)
                 }
                 orders.values.filter {it !in withParcels}.forEach {o->
                     oldItemsForOrder(act,o.orderId,account.id)?.let {old->
+                        if(!com.halo.expressassistant.api.TbOrderShipping.requiresDetail(o,!old.isOrderNumber && !old.mailNo.startsWith("ORDER-")))return@let
                         val returned=listOf("退款","取消","关闭","退回","拒收").any(o.statusText::contains)
                         allItems.add(old.copy(orderStatus=o.statusText,state=if(returned)4 else 3,stateName=o.statusText,
                             completedAt=o.completedAt.takeIf {it>0} ?: old.completedAt,
                             orderCreatedAt=o.createdAt.takeIf {it>0} ?: old.orderCreatedAt))
                     }
                 }
+                val instantSkipped=orders.values.count {it.businessType=="5000" && it !in withParcels}
+                if(instantSkipped>0) {
+                    val diagnostic=com.halo.expressassistant.hub.HubData.prefs(act)
+                    diagnostic.edit().putString("tb_list_diagnostic",diagnostic.getString("tb_list_diagnostic","").orEmpty()+"；快递订单 ${withParcels.size} 条；已排除 $instantSkipped 条闪购即时配送").apply()
+                }
                 Log.i(TAG, "tb(${account.label}) orders=${orders.size} withParcels=${withParcels.size}")
                 // 3) 并发拉 SSR 详情
                 var completedDetails=0
+                val detailFailures=java.util.concurrent.atomic.AtomicInteger()
                 val parcels = coroutineScope {
                     withParcels.chunked(4).flatMap { chunk ->
                         chunk.map {o->async {
-                            val detail=(resolvedDetails[o.orderId] ?: TbOrders.fetchSsrDetailWith(cookies,o.orderId))?.let {it.copy(orderStatus=o.statusText,createdAt=o.createdAt.takeIf {at->at>0} ?: it.createdAt,completedAt=o.completedAt)}
+                            val fetched=try {resolvedDetails[o.orderId] ?: TbOrders.fetchSsrDetailWith(cookies,o.orderId)}catch(e:kotlinx.coroutines.CancellationException){throw e}catch(_:Exception){null}
+                            if(fetched==null)detailFailures.incrementAndGet()
+                            val detail=fetched?.let {it.copy(orderStatus=o.statusText,createdAt=o.createdAt.takeIf {at->at>0} ?: it.createdAt,completedAt=o.completedAt)}
                                 ?: oldItemsForOrder(act,o.orderId,account.id)?.let {old->TbOrders.TbParcel(old.mailNo,old.companyName,old.stateName,old.latestText,old.latestTime,o.orderId,o.statusText,o.createdAt,o.completedAt)}
                                 ?: TbOrders.TbParcel("ORDER-TB-${o.orderId}","",o.statusText,o.statusText,"",o.orderId,o.statusText,o.createdAt,o.completedAt)
                             synchronized(orders){completedDetails++;onProgress?.invoke(Progress("淘宝：读取物流详情",completedDetails,withParcels.size))}
@@ -335,6 +361,7 @@ object SyncEngine {
                         }}.awaitAll().filterNotNull()
                     }
                 }
+                if(detailFailures.get()>0)err=listOfNotNull(err,"${detailFailures.get()} 条淘宝物流详情未更新，保留已有信息").joinToString("；")
                 // 4) 商品预缓存：订单号 -> mailNo 重新映射（保留旧 shortName）
                 val goodsByOrder = withParcels.associateBy({ it.orderId }, { o ->
                     JdGoods(
@@ -371,6 +398,15 @@ object SyncEngine {
         }
     }
 
+    private suspend fun fetchDouyinAll(act:Context,onProgress:(String)->Unit):Triple<List<ExpressItem>?,Map<String,JdGoods>,String?> {
+        val items=mutableListOf<ExpressItem>();val goods=linkedMapOf<String,JdGoods>();val errors=mutableListOf<String>()
+        for(account in Store.accounts(act,Store.CH_DOUYIN).filter {it.enabled})try {
+            val result=com.halo.expressassistant.api.DouyinOrders.sync(act,account,onProgress)
+            items+=result.items;goods.putAll(result.goods);result.warning?.let(errors::add)
+        }catch(e:kotlinx.coroutines.CancellationException){throw e}catch(e:Exception){errors+=e.message?.takeIf {it.startsWith("抖音") || it.startsWith("请先登录抖音") }?.take(180) ?: "抖音商城读取失败，已有数据保留"}
+        return Triple(items,goods,errors.takeIf {it.isNotEmpty()}?.distinct()?.joinToString("；"))
+    }
+
     /** 拼多多：逐账号**流式**抓取——每增量一批（订单+商品图）先上报（实时上涨），最终返回全量 */
     private suspend fun fetchPddAll(act: Context, onPddProgress: ((List<ExpressItem>, Map<String, JdGoods>) -> Unit)? = null): Triple<List<ExpressItem>?, Map<String, JdGoods>, String?> {
         val accounts = Store.accounts(act, Store.CH_PDD).filter { it.enabled }
@@ -382,7 +418,7 @@ object SyncEngine {
                 val (items, goodsMap, e) = fetchPddStream(act, account) { batch, goods ->
                     if (batch.isNotEmpty()) {
                         goodsAcc.putAll(goods)
-                        batch.forEach { allItems.put(it.mailNo, it) }
+                        batch.forEach { allItems.put("${it.accountId}|${it.id}", it) }
                         // 每轮批次都上报（不只新单）：成熟设备已无新增单，若只报 fresh
                         // 首页「首批即停圈」永远不触发，转圈会拖到全量抓完
                         onPddProgress?.invoke(batch, goods)
@@ -390,7 +426,7 @@ object SyncEngine {
                 }
                 if(e!=null)err=e
                 if (items == null) err = e ?: err
-                else allItems.putAll(items.associateBy { it.mailNo })
+                else allItems.putAll(items.associateBy { "${it.accountId}|${it.id}" })
             } catch (e: Throwable) {
                     if (e is kotlinx.coroutines.CancellationException) throw e
                 Log.w(TAG, "pdd account ${account.label} fail: $e")

@@ -45,19 +45,16 @@ object IdentityLauncher {
             return
         }
         if(key=="pdd") {
-            if(native(context,key))return
-            val launch=context.packageManager.getLaunchIntentForPackage(IdentityRoutes.route(key).packageName)
-            if(launch!=null) {
-                if(context !is Activity)launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                try {
-                    context.startActivity(launch)
-                    Toast.makeText(context,"未能直达身份码，请在拼多多原 App 中打开，并核对当前账号",Toast.LENGTH_LONG).show()
-                } catch(_:ActivityNotFoundException) {
-                    Toast.makeText(context,"无法打开拼多多，请手动在原 App 出示身份码",Toast.LENGTH_LONG).show()
-                } catch(_:SecurityException) {
-                    Toast.makeText(context,"请手动打开拼多多，并在原 App 出示身份码",Toast.LENGTH_LONG).show()
-                }
-            } else Toast.makeText(context,"未安装拼多多，请安装后在原 App 出示身份码",Toast.LENGTH_LONG).show()
+            val accounts=Store.accounts(context,"pdd").filter {it.enabled}
+            fun show(id:String){context.startActivity(Intent(context,PddIdentityActivity::class.java).putExtra("account_id",id))}
+            val selected=accounts.firstOrNull {it.id==accountId}
+            when {
+                accountId.isNotBlank() && selected==null->Toast.makeText(context,"该拼多多账号已移除或暂停，请在绑定页检查",Toast.LENGTH_LONG).show()
+                selected!=null->show(selected.id)
+                accounts.size==1->show(accounts.single().id)
+                accounts.size>1->OfficialAccountSheet.show(context,"pdd",accounts,accountId){show(it.id)}
+                else->show("")
+            }
             return
         }
         Toast.makeText(context,"请选择支持的官方取件服务",Toast.LENGTH_LONG).show()

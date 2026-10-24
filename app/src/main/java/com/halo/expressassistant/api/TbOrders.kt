@@ -33,7 +33,8 @@ object TbOrders {
         val goodsName: String = "",
         val goodsPic: String = "",
         val createdAt: Long = 0,
-        val completedAt: Long = 0
+        val completedAt: Long = 0,
+        val businessType: String = ""
     )
 
     data class TbParcel(

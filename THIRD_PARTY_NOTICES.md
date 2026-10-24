@@ -1,5 +1,7 @@
 # 第三方归属与许可
 
+当前更新：2026-10-25 / v0.9.9-fix1。项目商业授权边界与旧公开版相同，新增第三方渲染库另列如下。
+
 本项目建立在上游基础之上。源码可见、UI 没有显示致谢或当前文件路径不同，都不消除第三方版权和许可条件。第三方原许可及其商业使用权继续有效；本项目的非商业许可仅覆盖有权授权的新增表达，详见 [LICENSE_SCOPE.md](LICENSE_SCOPE.md)。
 
 ## 应用来源
@@ -18,6 +20,15 @@
 
 ## 直接依赖
 
+应用资产还直接附带以下 JavaScript 库（不属于 Maven 清单），它们的原 MIT 商业权利完整保留：
+
+| 资产 | 版本/作者 | 完整许可及来源 |
+| --- | --- | --- |
+| `JsBarcode.code128.min.js` | JsBarcode 3.12.3 / Johan Lindell | [MIT](LICENSES/MIT-JsBarcode.txt) · [官方仓库](https://github.com/lindell/JsBarcode) |
+| `qrcode-generator.js` | qrcode-generator 2.0.4 / Kazuhiko Arase | [MIT](LICENSES/MIT-qrcode-generator.txt) · [官方仓库](https://github.com/kazuhikoarase/qrcode-generator) |
+
+固定提交、官方资产路径、本地/官方原字节哈希及统一换行后匹配证据见 [渲染库来源核查](docs/research/identity-renderer-licenses-2026-10-25.md)。文件仅有换行差异，版权/许可头保留；不能把它们归为用户原创或套用项目非商业限制。
+
 | 依赖组 | 本快照声明版本 | 许可 |
 | --- | --- | --- |
 | AndroidX core-ktx、webkit、appcompat、activity、constraintlayout、recyclerview、swiperefreshlayout、lifecycle runtime/viewmodel/livedata、work-runtime-ktx | 以 `app/build.gradle` 为准（21 项直接依赖清单逐项列版本） | Apache-2.0 |
@@ -30,11 +41,11 @@
 
 直接依赖的发布 POM、许可链接和 SHA-256 证据见 [dependencies-license-evidence.json](docs/research/dependencies-license-evidence.json)。AndroidX 的传递依赖可能使最终解析版本不同于直接声明；本表不冒充完整二进制 SBOM。上述依赖通过构建系统下载，不作为本项目原创源代码发布；之后分发 APK 仍须审查完整实际依赖与嵌入 LICENSE/NOTICE。
 
-为用户指定的旧加固 APK 下载附件，本轮另解析了源码快照的 `releaseRuntimeClasspath`，收集 **96 个组件 / 89 个工件** 的许可元数据、工件哈希和 **14 项嵌入许可/NOTICE 记录**，无缺失 POM 许可项。见 [runtime-dependencies-license-evidence.json](docs/research/runtime-dependencies-license-evidence.json) 及 [LICENSES/runtime](LICENSES/runtime)。原加固工程与本快照的直接依赖声明一致；解析版本可能高于直接声明，例如 OkHttp 实际解析 4.12.0。这里不声称已对旧 APK 逐类反编译确定最终工件组成。
+为用户指定的当前 v0.9.9-fix1 加固 APK 下载附件，2026-10-25 重新解析源码快照的 `releaseRuntimeClasspath`，收集 **96 个组件 / 89 个工件** 的许可元数据、工件哈希和 **14 项嵌入许可/NOTICE 记录**，无缺失 POM 许可项。见 [runtime-dependencies-license-evidence.json](docs/research/runtime-dependencies-license-evidence.json) 及 [LICENSES/runtime](LICENSES/runtime)。最新加固工程与本快照的直接依赖声明一致；解析版本可能高于直接声明，例如 OkHttp 实际解析 4.12.0。这里不声称已对原 APK 逐类反编译确定最终工件组成。
 
 新增重要传递归属：`com.atlassian.commonmark:commonmark:0.13.0` 为 BSD-2-Clause（完整原文位于 LICENSES/runtime 的对应文件）；Shizuku `aidl`/`shared` 与 API/provider 同属 SDK MIT。其余解析组件的官方 POM、具体版本及许可记录均在上述机器清单，不把它们当作本项目自有版权。提取出的嵌入 NOTICE（包括 OkHttp）随源码与 Release 声明资料保留。
 
-`docs/images` 的四类设计示例不是第三方官方产品的真实截图：三个来自已验收的可编辑本地设计组件，中性化人物和商品素材后渲染；身份码板来自已确认的无人物素材原设计。平台名称用于兼容性说明，码和账号皆为示意，不授予商标/平台权利，具体记录见 docs/images/manifest.json。
+`docs/images` 当前四类设计示例均从本地新版可编辑设计源渲染，替换人物标识、私人信息和示例地点；包含首页、关联商品详情、我的页后台设置与统一身份码布局。它们不是第三方官方产品的真实账号截图；码、账号和运单皆为示意，不授予商标/平台权利，来源与哈希见 docs/images/manifest.json。
 
 Shizuku **SDK** 的 MIT 与 Shizuku **管理 App** 的 Apache-2.0 及品牌说明需区分。本项目不使用 Shizuku 的启动图标作为自己图标、不把 Shizuku 作为应用名、不冒用其管理 App ID/manager 权限。正常 SDK 的 provider/接口引用依其许可集成。
 

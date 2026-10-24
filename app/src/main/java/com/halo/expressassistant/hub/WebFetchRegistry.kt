@@ -13,9 +13,15 @@ object WebFetchRegistry {
     fun register(owner:Context,web:WebView){pages[web]=owner}
     fun closed(web:WebView)=web.tag==CLOSED
     fun release(web:WebView){pages.remove(web);web.tag=CLOSED}
+    fun cancelPage(web:WebView) {
+        val action=Runnable {if(!closed(web)){
+            release(web);web.stopLoading();(web.parent as? ViewGroup)?.removeView(web);web.destroy()
+        }}
+        if(Looper.myLooper()==Looper.getMainLooper())action.run() else Handler(Looper.getMainLooper()).post(action)
+    }
     fun cancel(owner:Context) {
         val action=Runnable {pages.filterValues {it===owner}.keys.toList().forEach {web->
-            release(web);web.stopLoading();(web.parent as? ViewGroup)?.removeView(web);web.destroy()
+            cancelPage(web)
         }}
         if(Looper.myLooper()==Looper.getMainLooper())action.run() else Handler(Looper.getMainLooper()).post(action)
     }

@@ -2,6 +2,7 @@ package com.halo.expressassistant.ui
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -58,11 +59,30 @@ object PddTraceFetcher {
     private val GOODS_NUM_KEYS = setOf("goods_num", "goodsCount", "quantity", "num", "count")
 
     private val handler = Handler(Looper.getMainLooper())
+    private data class ActivePage(val web:WebView,val cancel:()->Unit)
 
     data class TraceResult(val points: List<DetailPoint>, val goods: JdGoods?, val waybill:String="",val company:String="",
-        val station:String="",val deliveryAddress:String="",val phoneTail:String="",val pickupHint:String="",val pickupCode:String="")
+        val station:String="",val deliveryAddress:String="",val phoneTail:String="",val pickupHint:String="",val pickupCode:String="",val orderStatus:String="",val summaryOnly:Boolean=false,val locationReadAttempted:Boolean=false,val locationPending:Boolean=false,val orderId:String="")
 
-    suspend fun fetchMetadata(act:Activity,item:ExpressItem,cookies:String):TraceResult? = run(act,orderIdOf(item),cookies,true)
+    suspend fun fetchMetadata(act:Context,item:ExpressItem,cookies:String,allowLocationLookup:Boolean=true,
+        seedSnapshot:com.halo.expressassistant.hub.PddDetailPayload.Snapshot?=null):TraceResult? {
+        val order=orderIdOf(item)
+        val prefs=com.halo.expressassistant.hub.HubData.prefs(act)
+        val key="pdd_logistics_link_${item.accountId}_$order"
+        val cachedLink=if(System.currentTimeMillis()-prefs.getLong("${key}_at",0)<24*60*60*1000L)
+            com.halo.expressassistant.hub.PddFullLogisticsReader.officialLink(prefs.getString(key,"").orEmpty(),order) else ""
+        var pageResult:TraceResult?=null
+        val s=com.halo.expressassistant.hub.PddFullLogisticsReader.read(item,Store.pddTraces(act,item.mailNo).orEmpty()) {
+            run(act,order,cookies,true,initialUrl=cachedLink,onLogisticsLink={url->
+                val owned=com.halo.expressassistant.hub.PddFullLogisticsReader.officialLink(url,order)
+                if(owned.isNotBlank())prefs.edit().putString(key,owned).putLong("${key}_at",System.currentTimeMillis()).apply()
+            })?.also {pageResult=it}?.let {
+                com.halo.expressassistant.hub.PddDetailPayload.Snapshot(it.points,it.waybill,it.company,it.station,it.deliveryAddress,it.phoneTail,it.pickupHint,pickupCode=it.pickupCode,orderStatus=it.orderStatus,orderId=it.orderId)
+            }
+        } ?: return null
+        com.halo.expressassistant.hub.PddDiagnostics.note(act,"完整物流页读取",mapOf("orderRef" to com.halo.expressassistant.hub.PddDiagnosticPayload.ref(item.id),"directLogisticsLink" to cachedLink.isNotBlank().toString(),"points" to s.points.size.toString(),"hasWaybill" to s.waybill.isNotBlank().toString(),"hasCompany" to s.company.isNotBlank().toString(),"hasStation" to s.station.isNotBlank().toString(),"locationSecondPass" to "false"))
+        return TraceResult(s.points,pageResult?.goods,s.waybill,s.company,s.station,s.deliveryAddress,s.phoneTail,s.hint,s.pickupCode,s.orderStatus,orderId=s.orderId)
+    }
 
     /** 详情页时间线（source=pdd）——旧接口：第一个启用拼多多账号 */
     suspend fun fetch(act: Activity, item: ExpressItem): List<DetailPoint>? =
@@ -115,24 +135,28 @@ object PddTraceFetcher {
         }
     }
 
-    private suspend fun run(act: Activity, orderId: String, pddCookies: String, silent: Boolean): TraceResult? =
+    private suspend fun run(act: Context, orderId: String, pddCookies: String, silent: Boolean,initialUrl:String="",onLogisticsLink:(String)->Unit={}): TraceResult? =
         withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { cont ->
-                cont.invokeOnCancellation { com.halo.expressassistant.hub.WebFetchRegistry.cancel(act) }
-                start(act, orderId, pddCookies, silent) { r ->
+                var page:ActivePage?=null
+                cont.invokeOnCancellation { handler.post {page?.cancel?.invoke()} }
+                if(cont.isActive)page=start(act, orderId, pddCookies, silent,initialUrl,onLogisticsLink) { r ->
                     if (cont.isActive) cont.resume(r)
                 }
             }
         }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun start(act: Activity, orderId: String, pddCookies: String, silent: Boolean = false, onDone: (TraceResult?) -> Unit) {
+    private fun start(act: Context, orderId: String, pddCookies: String, silent: Boolean = false,initialUrl:String="",onLogisticsLink:(String)->Unit={}, onDone: (TraceResult?) -> Unit):ActivePage {
+        val handler=Handler(Looper.getMainLooper())
         val captures = ArrayList<Pair<String, String>>()
         var finished = false
         var challengeShown = false
         var collectStarted = false
         var retriedLogin = false
         val pageHolder = arrayOf("")
+        val targetHolder=arrayOf(initialUrl.ifBlank {TRACE_PAGE+orderId})
+        val readToken=java.util.UUID.randomUUID().toString()
         val w = WebView(act)
         com.halo.expressassistant.hub.WebFetchRegistry.register(act,w)
         WebView.setWebContentsDebuggingEnabled(false)
@@ -156,23 +180,32 @@ object PddTraceFetcher {
         fun finish(result: TraceResult?) {
             if (finished || com.halo.expressassistant.hub.WebFetchRegistry.closed(w)) return
             finished = true
-            handler.postDelayed({
-                com.halo.expressassistant.hub.WebFetchRegistry.release(w)
-                PddCapture.detach(w)
-                val captured=convert(captures)
-                val r = result?.copy(waybill=result.waybill.ifBlank {captured.waybill},company=result.company.ifBlank {captured.company}) ?: captured
-                onDone(r)
-            }, 200)
+            handler.removeCallbacksAndMessages(null)
+            com.halo.expressassistant.hub.WebFetchRegistry.cancelPage(w)
+            onDone(result)
+        }
+        fun beginCollect(view:WebView,url:String) {
+            if(finished || com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return
+            val path=android.net.Uri.parse(url).path.orEmpty()
+            if(path!="/order.html" && path!="/goods_express.html")return
+            pageHolder[0]=url
+            if(collectStarted)return
+            collectStarted=true
+            collectOfficialDetail(view,captures,pageHolder,::finish,onLogisticsLink,handler,
+                { !finished && !com.halo.expressassistant.hub.WebFetchRegistry.closed(w) },orderId,readToken,targetHolder)
         }
 
         w.webViewClient = object : WebViewClient() {
+            override fun onPageCommitVisible(view:WebView,url:String){beginCollect(view,url)}
+            override fun onPageStarted(view:WebView,url:String,icon:android.graphics.Bitmap?){if(!finished)pageHolder[0]=""}
             override fun onPageFinished(view: WebView, url: String) {
-                if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return
+                if(finished || com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return
                 pageHolder[0] = url
                 Log.i(TAG, "official logistics page loaded")
                 // 真正的登录页才算（goods_express.html?…&needs_login=1 只是参数，不是登录页）
                 val realLogin = url.contains("login.html") || url.contains("passport") || url.contains("/login") || url.contains("login?")
                 if (realLogin) {
+                    if(silent && retriedLogin){finish(null);return}
                     if (challengeShown) return
                     challengeShown = true
                     if (silent) {
@@ -197,10 +230,8 @@ object PddTraceFetcher {
                     }
                     return
                 }
-                if (url.contains("order") || url.contains("logistic")) {
-                    if (collectStarted) return
-                    collectStarted = true
-                    handler.postDelayed({ collect(w, captures, pageHolder, ::finish) }, 2500)
+                if (url.contains("order") || url.contains("logistic") || android.net.Uri.parse(url).path=="/goods_express.html") {
+                    beginCollect(view,url)
                 }
             }
 
@@ -213,51 +244,66 @@ object PddTraceFetcher {
                 return blockScheme(url.orEmpty())
             }
         }
-        WebViewCompat.addDocumentStartJavaScript(w, PddCapture.HOOK_JS, PddCapture.COOKIE_HOSTS.toSet())
-        w.loadUrl(TRACE_PAGE + orderId)
+        WebViewCompat.addDocumentStartJavaScript(w, "window.name='';window.__parcelPddReadToken='$readToken';\n"+PddCapture.HOOK_JS, PddCapture.COOKIE_HOSTS.toSet())
+        com.halo.expressassistant.hub.PddDiagnostics.note(act,"物流页面启动",mapOf("pageReused" to "false","requestOrderRef" to com.halo.expressassistant.hub.PddDiagnosticPayload.ref(orderId),"directLink" to initialUrl.isNotBlank().toString(),"fixedStartupWaitMs" to "0","fixedFinishWaitMs" to "0"))
+        w.loadUrl(initialUrl.ifBlank {TRACE_PAGE + orderId})
         handler.postDelayed({
             if (!finished) {
                 Log.w(TAG, "timeout, finalize with ${captures.size} captures")
                 finish(null)
             }
         }, 45_000)
-    }
-
-    private fun collect(
-        w: WebView,
-        captures: ArrayList<Pair<String, String>>,
-        pageHolder: Array<String>,
-        finish: (TraceResult?) -> Unit
-    ) {
-        collectOfficialDetail(w,captures,pageHolder,finish)
+        return ActivePage(w){if(!finished){finished=true;handler.removeCallbacksAndMessages(null);com.halo.expressassistant.hub.WebFetchRegistry.cancelPage(w)}}
     }
 
     /** Read the embedded current-order payload, then its exact official logistics link. */
-    private fun collectOfficialDetail(w:WebView,captures:ArrayList<Pair<String,String>>,pageHolder:Array<String>,finish:(TraceResult?)->Unit) {
-        var rounds=0
+    private fun collectOfficialDetail(w:WebView,captures:ArrayList<Pair<String,String>>,pageHolder:Array<String>,finish:(TraceResult?)->Unit,onLogisticsLink:(String)->Unit,requestHandler:Handler,alive:()->Boolean,expectedOrder:String,readToken:String,targetHolder:Array<String>) {
+        val handler=requestHandler
+        var pageStarted=android.os.SystemClock.elapsedRealtime()
         var followed=false
         var address="";var phoneTail=""
         val poll=object:Runnable {
             override fun run() {
-                if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return
-                rounds++
+                if(!alive())return
                 PddCapture.readCaptures(w) {batch->
-                    if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return@readCaptures
+                    if(!alive())return@readCaptures
                     batch.forEach {if(it !in captures)captures.add(it)}
-                    w.evaluateJavascript("""(function(){var d=window.rawData&&window.rawData.data||{};return JSON.stringify({data:{express:d.express,mobile:d.mobile,shippingAddress:d.shippingAddress,address:d.address,orderButtons:(d.orderButtons||[]).filter(function(b){return b.briefPrompt==='查看物流';})},text:document.body?document.body.innerText.slice(0,30000):''});})()""") {raw->
-                        if(com.halo.expressassistant.hub.WebFetchRegistry.closed(w))return@evaluateJavascript
+                    w.evaluateJavascript("""(function(){var r=window.rawData||{},d=r.data||{},s=r.store&&r.store.traceData&&r.store.traceData.shipping||d.shipping;var business;try{var seen=new WeakSet();business=JSON.parse(JSON.stringify({order:d,shipping:s,traceData:r.store&&r.store.traceData},function(k,v){if(v&&typeof v==='object'){if(seen.has(v))return '[repeated-reference]';seen.add(v);}return v;}));}catch(e){business={captureError:String(e)};}return JSON.stringify({pageUrl:location.href,readToken:window.__parcelPddReadToken||'',orderId:d.orderSn||d.order_sn||(d.queryParams&&d.queryParams.order_sn)||(s&&(s.orderSn||s.order_sn))||'',readyState:document.readyState,businessData:business,shipping:s?{shippingName:s.shippingName,trackingNumber:s.trackingNumber,traces:(s.traces||[]).map(function(t){return {time:t.time,timestamp:t.timestamp,info:t.info,status:t.status,realStatus:t.realStatus,traceStatusTip:t.traceStatusTip};})}:null,data:{orderStatusPrompt:d.orderStatusPrompt||d.order_status_prompt||d.statusPrompt,topBanner:{orderStatusPrompt:d.topBanner&&d.topBanner.orderStatusPrompt},chatStatusPrompt:d.chatStatusPrompt,express:d.express,mobile:d.mobile,shippingAddress:d.shippingAddress,address:d.address,orderButtons:(d.orderButtons||[]).filter(function(b){return b.briefPrompt==='查看物流';})},text:document.body?document.body.innerText.slice(0,30000):''});})()""") {raw->
+                        if(!alive())return@evaluateJavascript
                         val json=runCatching {org.json.JSONTokener(raw).nextValue() as? String}.getOrNull().orEmpty()
                         val snapshot=com.halo.expressassistant.hub.PddDetailPayload.read(json)
+                        val envelope=runCatching {JSONObject(json)}.getOrNull()
+                        val pageUrl=envelope?.optString("pageUrl").orEmpty()
+                        val verified=com.halo.expressassistant.hub.PddPageIdentity.accepts(expectedOrder,targetHolder[0],pageUrl,snapshot.orderId,readToken,envelope?.optString("readToken").orEmpty())
+                        if(!verified) {
+                            if(android.os.SystemClock.elapsedRealtime()-pageStarted>=11200) {
+                                com.halo.expressassistant.hub.PddDiagnostics.note(w.context,"物流归属拒绝",mapOf("requestOrderRef" to com.halo.expressassistant.hub.PddDiagnosticPayload.ref(expectedOrder),"returnedOrderRef" to snapshot.orderId.ifBlank {com.halo.expressassistant.hub.PddPageIdentity.orderOf(pageUrl)}.takeIf(String::isNotBlank)?.let(com.halo.expressassistant.hub.PddDiagnosticPayload::ref).orEmpty(),"pagePath" to com.halo.expressassistant.hub.PddDiagnosticPayload.endpoint(pageUrl),"accepted" to "false"))
+                                finish(null)
+                            } else handler.postDelayed(this,120)
+                            return@evaluateJavascript
+                        }
+                        val logisticsLoaded=android.net.Uri.parse(pageUrl).path=="/goods_express.html"
                         address=snapshot.deliveryAddress.ifBlank {address};phoneTail=snapshot.phoneTail.ifBlank {phoneTail}
-                        if(!followed && snapshot.nextUrl.isNotBlank()) {
-                            followed=true;w.loadUrl(snapshot.nextUrl);handler.postDelayed(this,800);return@evaluateJavascript
+                        if(!followed && com.halo.expressassistant.hub.PddLogisticsReadiness.terminalWithoutTrace(snapshot)) {
+                            finish(TraceResult(emptyList(),null,snapshot.waybill,snapshot.company,orderStatus=snapshot.orderStatus,orderId=expectedOrder));return@evaluateJavascript
                         }
-                        val logisticsLoaded=android.net.Uri.parse(pageHolder[0]).path=="/goods_express.html"
-                        if(snapshot.points.isNotEmpty() && (logisticsLoaded || (!followed && snapshot.nextUrl.isBlank()))) {
-                            finish(TraceResult(snapshot.points,null,snapshot.waybill,snapshot.company,snapshot.station,address,phoneTail,snapshot.hint,snapshot.pickupCode));return@evaluateJavascript
+                        if(!followed && !logisticsLoaded && snapshot.nextUrl.isNotBlank()) {
+                            val next=com.halo.expressassistant.hub.PddFullLogisticsReader.officialLink(snapshot.nextUrl,expectedOrder)
+                            if(next.isBlank()){finish(null);return@evaluateJavascript}
+                            onLogisticsLink(next)
+                            targetHolder[0]=next;followed=true;pageStarted=android.os.SystemClock.elapsedRealtime();w.loadUrl(next);handler.postDelayed(this,120);return@evaluateJavascript
                         }
-                        if(rounds>=16){val fallback=convert(captures);finish(fallback.takeIf {it.points.isNotEmpty()});return@evaluateJavascript}
-                        handler.postDelayed(this,700)
+                        val documentComplete=runCatching {JSONObject(json).optString("readyState")=="complete"}.getOrDefault(false)
+                        if(com.halo.expressassistant.hub.PddLogisticsReadiness.canFinish(snapshot,logisticsLoaded,documentComplete,followed)) {
+                            com.halo.expressassistant.hub.PddDiagnostics.note(w.context,"取件地点解析",mapOf(
+                                "orderRef" to com.halo.expressassistant.hub.PddDiagnosticPayload.ref(expectedOrder),
+                                "source" to snapshot.stationSource,"station" to snapshot.station,"pickupHint" to snapshot.hint))
+                            com.halo.expressassistant.hub.PddDiagnostics.response(w.context,if(logisticsLoaded)"/goods_express.html" else "/order.html",json,"full-detail",0,false,"完整物流与地点")
+                            com.halo.expressassistant.hub.PddDiagnostics.note(w.context,"物流归属通过",mapOf("requestOrderRef" to com.halo.expressassistant.hub.PddDiagnosticPayload.ref(expectedOrder),"returnedOrderRef" to snapshot.orderId.ifBlank {com.halo.expressassistant.hub.PddPageIdentity.orderOf(pageUrl)}.takeIf(String::isNotBlank)?.let(com.halo.expressassistant.hub.PddDiagnosticPayload::ref).orEmpty(),"returnedParcelRef" to snapshot.waybill.takeIf(String::isNotBlank)?.let(com.halo.expressassistant.hub.PddDiagnosticPayload::ref).orEmpty(),"pagePath" to com.halo.expressassistant.hub.PddDiagnosticPayload.endpoint(pageUrl),"accepted" to "true"))
+                            finish(TraceResult(snapshot.points,null,snapshot.waybill,snapshot.company,snapshot.station,address,phoneTail,snapshot.hint,snapshot.pickupCode,orderId=expectedOrder));return@evaluateJavascript
+                        }
+                        if(android.os.SystemClock.elapsedRealtime()-pageStarted>=11200){finish(null);return@evaluateJavascript}
+                        handler.postDelayed(this,120)
                     }
                 }
             }

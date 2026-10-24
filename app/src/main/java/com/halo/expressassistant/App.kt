@@ -16,16 +16,7 @@ class App : Application() {
         super.onCreate()
         androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO)
         instance = this
-        // 15 分钟为 WorkManager 周期下限；Worker 内部按设置（默认关闭 / 用户自定分钟）决定是否执行
-        val request = PeriodicWorkRequestBuilder<TrackingWorker>(15, TimeUnit.MINUTES)
-            .setConstraints(
-                Constraints.Builder()
-                    .setRequiredNetworkType(NetworkType.CONNECTED)
-                    .build()
-            )
-            .build()
-        WorkManager.getInstance(this)
-            .enqueueUniquePeriodicWork("express_tracking", ExistingPeriodicWorkPolicy.UPDATE, request)
+        BackgroundSyncScheduler.configure(this)
         if (Store.localApiEnabled(this)) {
             ApiServer.start(this)
         }

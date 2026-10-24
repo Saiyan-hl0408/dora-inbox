@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.doOnPreDraw
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -27,10 +28,12 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.textfield.TextInputEditText
 import com.halo.expressassistant.data.ExpressItem
+import com.halo.expressassistant.data.JdGoods
 import com.halo.expressassistant.data.Store
 import com.halo.expressassistant.ui.*
 import kotlinx.coroutines.*
-import coil.dispose
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -80,7 +83,7 @@ class HubActivity : AppCompatActivity() {
     private val drainBindingSync=object:Runnable {
         override fun run() {
             if(!syncForeground || isFinishing || isDestroyed)return
-            if(working || SyncEngine.isBusy()) {
+            if(working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy()) {
                 if(queuedLookup.isNotBlank() || pendingLookupReady || bindingSyncQueue.pending().isNotEmpty() || bindingSyncQueue.pendingRange()!=null)handler.postDelayed(this,300)
                 return
             }
@@ -99,10 +102,52 @@ class HubActivity : AppCompatActivity() {
             if(enabled.isNotEmpty())sync(automatic=!request.manual,channels=enabled) else handler.post(this)
         }
     }
-    private data class PhotoSlot(val item:ExpressItem,val frame:FrameLayout,val image:ImageView,var loaded:String="")
+    private data class PhotoSlot(var item:ExpressItem,val frame:FrameLayout,val image:ImageView,var loaded:String="")
     private val photoSlots=mutableListOf<PhotoSlot>()
+    // A logistics update may replace the text card, but must not replace its picture.
+    private val parcelPhotos=mutableMapOf<String,PhotoSlot>()
+    private data class CardStamp(val item:ExpressItem,val goods:JdGoods?,val collectedAt:Long?,val compact:Boolean,val history:Boolean,val dark:Boolean,val fontScale:Float)
+    private data class SavedCard(val stamp:CardStamp,val view:LinearLayout,val photos:List<PhotoSlot>)
+    private val parcelCards=linkedMapOf<String,SavedCard>()
+    private val renderedCards=mutableSetOf<String>()
+    private var renderGoods:Map<String,JdGoods>?=null
+    private var renderCollected:Map<String,Long>?=null
+    private var photoScanScheduled=false
+    private var scrollingUntil=0L
+    private var parcelScroll:ScrollView?=null
+    private var parcelScrollScope=""
+    private var restoringReading=false
+    private var readingRenderGeneration=0
+    private val readingPositions=linkedMapOf<String,ListReadingPosition.Bookmark>()
+    private fun readingScope()=ListReadingPosition.scope(showHistory,historyDays,filter,search)
+    private fun readingRows():List<ListReadingPosition.Row> {
+        if(!::list.isInitialized)return emptyList()
+        return (0 until list.childCount).mapNotNull {index->
+            val view=list.getChildAt(index)
+            val key=(view.tag as? String)?.takeIf {it.startsWith("parcel-reading:")} ?: return@mapNotNull null
+            ListReadingPosition.Row(key,list.top+view.top,view.height)
+        }
+    }
+    private fun rememberParcelReading() {
+        val scroll=parcelScroll ?: return
+        if(restoringReading || scroll.height<=0 || parcelScrollScope.isBlank())return
+        val rows=readingRows()
+        if(rows.isEmpty() && readingPositions[parcelScrollScope]?.rowKey?.isNotBlank()==true)return
+        val saved=ListReadingPosition.capture(scroll.scrollY,rows)
+        readingPositions.remove(parcelScrollScope);readingPositions[parcelScrollScope]=saved
+        while(readingPositions.size>16)readingPositions.remove(readingPositions.keys.first())
+    }
+    private fun readingState()=Store.json.encodeToString(readingPositions.toMap())
+    private val updateParcels=object:Runnable {
+        override fun run() {
+            if(tab!=0 || !::list.isInitialized)return
+            val delay=scrollingUntil-SystemClock.uptimeMillis()
+            if(delay>0){handler.postDelayed(this,delay);return}
+            renderList()
+        }
+    }
     private var photoJob:Job?=null
-    private val scanPhotos=Runnable {loadVisiblePhotos()}
+    private val scanPhotos=Runnable {photoScanScheduled=false;loadVisiblePhotos()}
     private lateinit var pageTitle:TextView
     private lateinit var brandTitle:ImageView
     private var receiverRegistered = false
@@ -110,8 +155,33 @@ class HubActivity : AppCompatActivity() {
     private val identityTick = object : Runnable {
         override fun run() { if (tab == 1) renderBody(); handler.postDelayed(this,30000) }
     }
+    private var backgroundProgressVisible=false
+    private fun reflectBackgroundSync() {
+        if(working)return
+        val prefs=HubData.prefs(this)
+        val running=prefs.getBoolean("background_run_running",false) && SyncRunCoordinator.isBusy()
+        if(running){backgroundProgressVisible=true;showLoading(prefs.getString("background_run_label","后台同步中，已有订单可查看").orEmpty(),immediate=true)}
+        else if(backgroundProgressVisible){backgroundProgressVisible=false;hideLoading();refreshStatusChips()}
+    }
     private val changed = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) { if (tab == 0 && ::list.isInitialized) renderList() }
+        override fun onReceive(context: Context, intent: Intent) {
+            reflectBackgroundSync()
+            if(tab==0 && ::list.isInitialized){handler.removeCallbacks(updateParcels);handler.postDelayed(updateParcels,80)}
+        }
+    }
+    private var diagnosticExportText=""
+    private val diagnosticExporter=registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")){uri->
+        val text=diagnosticExportText;diagnosticExportText=""
+        if(uri!=null && text.isNotBlank())lifecycleScope.launch {
+            val saved=withContext(Dispatchers.IO){runCatching {contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use {it.write(text)} ?: error("No destination")}.isSuccess}
+            if(saved) {
+                val location=withContext(Dispatchers.IO){DiagnosticShare.savedLocation(this@HubActivity,uri)}
+                MaterialAlertDialogBuilder(this@HubActivity).setTitle("诊断已保存").setMessage("保存位置：\n$location")
+                    .setPositiveButton("系统分享"){_,_->runCatching {DiagnosticShare.share(this@HubActivity,uri)}.onFailure {toast("没有可用的分享应用")}}
+                    .setNeutralButton("打开文件"){_,_->runCatching {DiagnosticShare.view(this@HubActivity,uri)}.onFailure {toast("没有可打开TXT的应用，可使用系统分享")}}
+                    .setNegativeButton("完成",null).show()
+            } else toast("保存失败，请重试")
+        }
     }
     private val platformLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result->
         renderBody()
@@ -124,7 +194,7 @@ class HubActivity : AppCompatActivity() {
         }
         result.data?.getStringExtra("bound_channel")?.takeIf {result.resultCode==RESULT_OK}?.let {
             bindingSyncQueue.request(it);didAutoSync=true
-            if(working || SyncEngine.isBusy())status.text="${HubData.channels[it]}已绑定，当前读取结束后自动同步。"
+            if(working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy())status.text="${HubData.channels[it]}已绑定，当前读取结束后自动同步。"
             if(pendingLookup.isNotBlank())resumePendingLookup()
             handler.post(drainBindingSync)
         }
@@ -146,6 +216,10 @@ class HubActivity : AppCompatActivity() {
         pendingLookupReady=savedInstanceState?.getBoolean("pendingLookupReady",false) ?: false
         savedInstanceState?.getInt("pendingHistoryDays",0)?.takeIf {it>0}?.let(bindingSyncQueue::requestRange)
         HubData.migrateV3(this)
+        PddLocationRecovery.prepare(this)
+        runCatching {Store.json.decodeFromString<Map<String,ListReadingPosition.Bookmark>>(
+            savedInstanceState?.getString("parcelReadingPositions") ?: HubData.prefs(this).getString("parcel_reading_positions","{}").orEmpty())}
+            .getOrNull()?.let(readingPositions::putAll)
         historyDays=HistoryRangePolicy.clamp(savedInstanceState?.getInt("historyDays") ?: HubData.prefs(this).getInt("history_days",HistoryRangePolicy.DEFAULT_DAYS))
         tab = savedInstanceState?.getInt("tab") ?: 0
         showHistory = savedInstanceState?.getBoolean("history") ?: false
@@ -202,7 +276,7 @@ class HubActivity : AppCompatActivity() {
         listOf("快递","身份码","我的").forEachIndexed { i,title ->
             val entry=column().apply {
                 gravity=Gravity.CENTER; minimumHeight=dp(56); contentDescription=title
-                addView(ImageView(this@HubActivity).apply { setImageDrawable(HubIcon(listOf("nav-parcel","qr","user")[i],muted,dp(24))); importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO },LinearLayout.LayoutParams(dp(24),dp(24)))
+                addView(ImageView(this@HubActivity).apply { setImageDrawable(HubIcon(listOf("nav-truck","qr","user")[i],muted,dp(24))); importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO },LinearLayout.LayoutParams(dp(24),dp(24)))
                 addView(label(title,11).apply { gravity=Gravity.CENTER;setPadding(0,dp(3),0,0) })
                 isClickable=true; isFocusable=true; setOnClickListener {tab=i;showHistory=false;bindingChannel=null;settingsPage=null;settingsParent=null;renderBody()}
             }
@@ -217,7 +291,7 @@ class HubActivity : AppCompatActivity() {
         renderBody()
         if(savedInstanceState==null)handleShare(intent)
     }
-    override fun onSaveInstanceState(out: Bundle) { out.putString("pendingLookup",pendingLookup);out.putString("queuedLookup",queuedLookup);out.putBoolean("pendingLookupReady",pendingLookupReady || activeLookup);out.putStringArrayList("manualSyncChannels",ArrayList(bindingSyncQueue.pendingManual()+if(activeManualSync)activeBindingChannels else emptySet()));out.putInt("pendingHistoryDays",bindingSyncQueue.pendingRange() ?: activeHistoryDays ?: 0);out.putBoolean("didAutoSync",didAutoSync);out.putStringArrayList("bindingSyncChannels",ArrayList(bindingSyncQueue.pending()+activeBindingChannels));out.putString("bindingChannel",bindingChannel);out.putString("settingsPage",settingsPage);out.putString("settingsParent",settingsParent);out.putString("settingsPlatform",settingsPlatform);out.putInt("historyDays",historyDays);out.putInt("tab",tab);out.putBoolean("history",showHistory);out.putString("search",search);out.putString("filter",filter); out.putString("platform",platform); out.putString("pendingImagePlatform",pendingImagePlatform); super.onSaveInstanceState(out) }
+    override fun onSaveInstanceState(out: Bundle) { rememberParcelReading();out.putString("parcelReadingPositions",readingState());out.putString("pendingLookup",pendingLookup);out.putString("queuedLookup",queuedLookup);out.putBoolean("pendingLookupReady",pendingLookupReady || activeLookup);out.putStringArrayList("manualSyncChannels",ArrayList(bindingSyncQueue.pendingManual()+if(activeManualSync)activeBindingChannels else emptySet()));out.putInt("pendingHistoryDays",bindingSyncQueue.pendingRange() ?: activeHistoryDays ?: 0);out.putBoolean("didAutoSync",didAutoSync);out.putStringArrayList("bindingSyncChannels",ArrayList(bindingSyncQueue.pending()+activeBindingChannels));out.putString("bindingChannel",bindingChannel);out.putString("settingsPage",settingsPage);out.putString("settingsParent",settingsParent);out.putString("settingsPlatform",settingsPlatform);out.putInt("historyDays",historyDays);out.putInt("tab",tab);out.putBoolean("history",showHistory);out.putString("search",search);out.putString("filter",filter); out.putString("platform",platform); out.putString("pendingImagePlatform",pendingImagePlatform); super.onSaveInstanceState(out) }
     override fun onStart() {
         super.onStart()
         val intentFilter = IntentFilter(HubData.CHANGED)
@@ -229,17 +303,29 @@ class HubActivity : AppCompatActivity() {
         super.onResume()
         syncForeground=true
         if (::body.isInitialized) renderBody()
-        if (!didAutoSync && pendingLookup.isBlank() && HubData.prefs(this).getBoolean("auto_open",true) && Store.hasAnyAccount(this)) { didAutoSync=true;if(bindingSyncQueue.pending().isEmpty() && bindingSyncQueue.pendingRange()==null)sync(automatic=true) }
+        reflectBackgroundSync()
+        val autoPrefs=HubData.prefs(this)
+        val hasActive=Store.items(this).any {!HubData.collected(this,it) && !ParcelEligibility.isVirtual(it) && ParcelPresentation.stage(it) in setOf(ParcelPresentation.Stage.PICKUP,ParcelPresentation.Stage.TRANSIT,ParcelPresentation.Stage.UNVERIFIED,ParcelPresentation.Stage.NOT_SHIPPED)}
+        val now=System.currentTimeMillis()
+        if ((!didAutoSync || hasActive) && SyncRunCoordinator.due(this) &&
+            pendingLookup.isBlank() && autoPrefs.getBoolean("auto_open",true) && Store.hasAnyAccount(this) &&
+            !working && !SyncEngine.isBusy() && !SyncRunCoordinator.isBusy() && bindingSyncQueue.pending().isEmpty() && bindingSyncQueue.pendingRange()==null) {
+            didAutoSync=true
+            autoPrefs.edit().putLong("foreground_sync_attempt_at",now).apply()
+            sync(automatic=true)
+        }
         handler.post(drainBindingSync)
     }
     override fun onPause() {
+        rememberParcelReading()
+        HubData.prefs(this).edit().putString("parcel_reading_positions",readingState()).apply()
         syncForeground=false;handler.removeCallbacks(drainBindingSync)
         super.onPause()
     }
     override fun onStop() {
         if (receiverRegistered) { unregisterReceiver(changed); receiverRegistered=false }
         handler.removeCallbacks(identityTick)
-        handler.removeCallbacks(scanPhotos);photoJob?.cancel()
+        handler.removeCallbacks(scanPhotos);photoScanScheduled=false;handler.removeCallbacks(updateParcels);photoJob?.cancel()
         super.onStop()
     }
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleShare(intent) }
@@ -276,12 +362,17 @@ class HubActivity : AppCompatActivity() {
         val content = column().apply { setPadding(dp(16),dp(4),dp(16),dp(12)) }
         body.addView(ScrollView(this).apply {
             isFillViewport=true; addView(content)
-            setOnScrollChangeListener {_:View,_,_,_,_->schedulePhotos()}
+            if(tab==0) {
+                parcelScroll=this;parcelScrollScope=readingScope();restoringReading=true
+                isFocusableInTouchMode=true;descendantFocusability=ViewGroup.FOCUS_BEFORE_DESCENDANTS
+            }
+            setOnScrollChangeListener {_:View,_,_,_,_->scrollingUntil=SystemClock.uptimeMillis()+120;schedulePhotos()}
         },LinearLayout.LayoutParams(-1,0,1f))
         return content
     }
     private fun renderBody() {
-        photoSlots.clear();handler.removeCallbacks(scanPhotos)
+        rememberParcelReading()
+        photoSlots.clear();handler.removeCallbacks(scanPhotos);photoScanScheduled=false;parcelScroll=null
         body.removeAllViews()
         pageTitle.text=when(tab){1->"身份码";2->"我的";else->"哆啦收件箱"}
         pageTitle.visibility=if(tab==0)View.GONE else View.VISIBLE
@@ -292,10 +383,10 @@ class HubActivity : AppCompatActivity() {
         statusChips.visibility=if(tab==0 && loadingArea.visibility!=View.VISIBLE)View.VISIBLE else View.GONE
         refreshStatusChips()
         header.visibility=if(((bindingChannel!=null || settingsPage!=null) && tab==2) || (showHistory && tab==0))View.GONE else View.VISIBLE
-        val standalone=tab==2 && (settingsPage in setOf("help","result","verification") || (settingsPage=="results" && HubData.channels.keys.any {HubData.prefs(this).getString("binding_sync_brief_$it","")=="读取失败"}))
+        val standalone=tab==2 && (settingsPage in setOf("help","result","verification") || (settingsPage=="results" && HubData.channels.keys.any {SyncStatusText.needsAttention(HubData.prefs(this).getString("binding_sync_brief_$it",""))}))
         navigation.visibility=if(standalone)View.GONE else View.VISIBLE;navigationDivider.visibility=navigation.visibility
         navViews.forEachIndexed { i,entry ->
-            val icon=if(i==tab)listOf("nav-parcel-filled","qr-filled","user-filled")[i] else listOf("nav-parcel","qr","user")[i]
+            val icon=if(i==tab)listOf("nav-truck","qr-filled","user-filled")[i] else listOf("nav-truck","qr","user")[i]
             (entry.getChildAt(0) as ImageView).setImageDrawable(HubIcon(icon,if(i==tab)accent else muted,dp(24)))
             (entry.getChildAt(1) as TextView).setTextColor(if(i==tab)accent else muted)
             entry.isSelected=i==tab
@@ -310,7 +401,7 @@ class HubActivity : AppCompatActivity() {
         if(HubData.items(this).isEmpty() && !Store.hasAnyAccount(this)) {statusChips.visibility=View.GONE;return}
         val prefs=HubData.prefs(this)
         val at=HubData.channels.keys.maxOfOrNull {prefs.getLong("binding_sync_at_$it",0)} ?: 0L
-        val failed=HubData.channels.keys.count {prefs.getString("binding_sync_brief_$it","")=="读取失败"}
+        val failed=HubData.channels.keys.count {SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$it",""))}
         statusChips.background=null;statusChips.setPadding(0,0,0,0)
         if(failed>0) {
             statusChips.gravity=Gravity.CENTER_VERTICAL;statusChips.setPadding(dp(12),dp(9),dp(10),dp(9))
@@ -333,13 +424,13 @@ class HubActivity : AppCompatActivity() {
             val line=ui.row();line.addView(ProgressBar(this@HubActivity),LinearLayout.LayoutParams(dp(28),dp(28)).apply {marginEnd=dp(14)})
             line.addView(ui.column().apply {addView(progressText);addView(ui.text("正在读取订单信息，请稍候…",13,false,muted),LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(6)})},LinearLayout.LayoutParams(0,-2,1f));addView(line)
         }
-        for(channel in listOf("jd","pdd","taobao")) {
+        for(channel in listOf("jd","pdd","taobao","douyin").filter {it in HubData.channels}) {
             val accounts=Store.accounts(this,channel)
             val enabled=accounts.any {it.enabled && (channel!="taobao" || it.taobaoOrdersEnabled)}
             val value=when {channel in activeBindingChannels && working->"读取中";channel in bindingSyncQueue.pending()->"已排队";!enabled->if(channel=="taobao" && accounts.any {it.enabled})"订单待验证" else "未登录";prefs.getString("binding_sync_brief_$channel","")=="已更新"->"已完成";else->prefs.getString("binding_sync_brief_$channel","待同步").orEmpty()}
             ui.card(panel.content,padding=8).apply {
                 background=ui.background(Color.WHITE,12,Color.rgb(227,237,248));(layoutParams as LinearLayout.LayoutParams).bottomMargin=dp(5)
-                ui.actionRow(this,HubData.channels[channel].orEmpty(),value=value,channel=channel,tint=if(value=="读取失败")ui.orange else if(value=="已完成")ui.green else ui.blue){panel.close();if(enabled)showBindingResult(channel) else platformAccounts(channel)}
+                ui.actionRow(this,HubData.channels[channel].orEmpty(),value=value,channel=channel,tint=if(SyncStatusText.needsAttention(value))ui.orange else if(value=="已完成")ui.green else ui.blue){panel.close();if(enabled)showBindingResult(channel) else platformAccounts(channel)}
             }
         }
         if(working)ui.buttons(panel.footer,"查看当前结果","停止当前同步",{panel.close();showRecentResults()},{stopCurrentWork();panel.close()})
@@ -414,7 +505,17 @@ class HubActivity : AppCompatActivity() {
         background=GradientDrawable().apply {setColor(surface);cornerRadius=dp(14).toFloat()}
         list.addView(this,LinearLayout.LayoutParams(-1,-2).apply {bottomMargin=dp(20)})
     }
-    private fun productImage(item:ExpressItem,size:Int):FrameLayout {
+    private fun photoKey(item:ExpressItem)="${item.source}:${item.accountId}:${item.mailNo}"
+    private fun productImage(item:ExpressItem,size:Int,reuse:Boolean=false):FrameLayout {
+        val previous=if(reuse)parcelPhotos[photoKey(item)] else null
+        if(previous!=null) {
+            previous.item=item
+            (previous.frame.parent as? ViewGroup)?.removeView(previous.frame)
+            previous.frame.layoutParams=LinearLayout.LayoutParams(dp(size),dp(size))
+            previous.frame.setOnClickListener {openProductPhoto(item)}
+            photoSlots.add(previous)
+            return previous.frame
+        }
         val frame=FrameLayout(this).apply {
             background=GradientDrawable().apply {setColor(if(dark)Color.rgb(42,55,71) else Color.rgb(243,246,250));cornerRadius=dp(9).toFloat()}
             clipToOutline=true; contentDescription="商品图片"
@@ -422,14 +523,17 @@ class HubActivity : AppCompatActivity() {
         frame.addView(ImageView(this).apply {setImageDrawable(HubIcon("box",muted,dp(24)));setPadding(dp(14),dp(14),dp(14),dp(14))},FrameLayout.LayoutParams(-1,-1))
         val image=ImageView(this).apply {scaleType=ImageView.ScaleType.CENTER_CROP;importantForAccessibility=View.IMPORTANT_FOR_ACCESSIBILITY_NO}
         frame.addView(image,FrameLayout.LayoutParams(-1,-1))
-        photoSlots.add(PhotoSlot(item,frame,image))
+        val slot=PhotoSlot(item,frame,image)
+        photoSlots.add(slot)
+        if(reuse)parcelPhotos[photoKey(item)]=slot
         frame.isClickable=true;frame.isFocusable=true
-        frame.setOnClickListener {
-            val url=Store.jdGoods(this)[item.mailNo]?.imageUrl.orEmpty()
-            if(url.isBlank())toast("平台暂未提供商品图片") else showProductPhoto(item,url)
-        }
+        frame.setOnClickListener {openProductPhoto(item)}
         frame.layoutParams=LinearLayout.LayoutParams(dp(size),dp(size))
         return frame
+    }
+    private fun openProductPhoto(item:ExpressItem) {
+        val url=ParcelGroups.image(item,Store.jdGoods(this)[item.mailNo])
+        if(url.isBlank())toast("平台暂未提供商品图片") else showProductPhoto(item,url)
     }
     private fun showProductPhoto(item:ExpressItem,url:String) {
         val dialog=android.app.Dialog(this,android.R.style.Theme_Material_NoActionBar_Fullscreen)
@@ -442,11 +546,14 @@ class HubActivity : AppCompatActivity() {
         content.addView(label(productTitle(item),14).apply {setTextColor(Color.WHITE);maxLines=2})
         content.addView(label("双指缩放 · 双击放大 · 拖动查看",12).apply {setTextColor(Color.rgb(180,192,207));gravity=Gravity.CENTER})
         dialog.setContentView(content);dialog.show()
-        dialog.setOnDismissListener {image.dispose()}
+        dialog.setOnDismissListener {ProductPhotos.clear(image)}
         ProductPhotos.load(image,url)
     }
     private fun schedulePhotos() {
-        handler.removeCallbacks(scanPhotos);handler.postDelayed(scanPhotos,180)
+        if(photoScanScheduled)return
+        photoScanScheduled=true
+        // Run once per frame, including while the finger is moving.
+        handler.postDelayed(scanPhotos,16)
     }
     private fun visiblePhotos():List<PhotoSlot> {
         val viewport=android.graphics.Rect()
@@ -457,14 +564,14 @@ class HubActivity : AppCompatActivity() {
         val visible=visiblePhotos()
         val goods=Store.jdGoods(this)
         for(slot in visible) {
-            val url=goods[slot.item.mailNo]?.imageUrl.orEmpty()
+            val url=ParcelGroups.image(slot.item,goods[slot.item.mailNo])
             if(url.isNotBlank() && url!=slot.loaded) {
                 slot.loaded=url
                 // Decode for this display size; Coil keeps the original compressed bytes on disk.
                 ProductPhotos.load(slot.image,url,(slot.frame.width*2).coerceAtLeast(dp(96)))
             }
         }
-        if(photoJob?.isActive==true || working || SyncEngine.isBusy())return
+        if(photoJob?.isActive==true || working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy())return
         val now=System.currentTimeMillis();val prefs=HubData.prefs(this)
         val missing=visible.filter {slot->slot.item.source=="jd" && !slot.item.isOrderNumber &&
             slot.item.mailNo.matches(Regex("[A-Za-z0-9]{8,32}")) && ProductImagePolicy.canFetch(goods[slot.item.mailNo]?.imageUrl?.isNotBlank()==true,now,prefs.getLong("photo_retry_${slot.item.accountId}_${slot.item.mailNo}",0))}
@@ -482,27 +589,51 @@ class HubActivity : AppCompatActivity() {
             }
         }
     }
-    private fun productTitle(item:ExpressItem)=GoodsCache.title(Store.jdGoods(this)[item.mailNo],item.originalName)
+    private fun productTitle(item:ExpressItem)=ParcelGroups.title(item,(renderGoods ?: Store.jdGoods(this))[item.mailNo])
+    private fun collectedSnapshot()=renderCollected ?: HubData.collectedTimes(this)
     private fun station(item:ExpressItem):String {
         val bracket=Regex("""[【\[(]([^】\])]{2,40})[】\])]""").findAll(item.latestText).map {it.groupValues[1]}.firstOrNull {listOf("驿站","快递站","自提","快递柜","代收").any(it::contains)}
         return PickupCardInfo.station(item).ifBlank {bracket.orEmpty()}.takeIf {it.isNotBlank()} ?: if(ParcelPresentation.stage(item)==ParcelPresentation.Stage.PICKUP)"待取件 · ${HubData.channels[item.source] ?: item.provider}" else item.stateLabel()
     }
     private fun renderList() {
         if(!::list.isInitialized || tab!=0)return
+        handler.removeCallbacks(updateParcels)
+        renderGoods=Store.jdGoods(this);renderCollected=HubData.collectedTimes(this)
+        renderedCards.clear()
+        rememberParcelReading()
+        parcelScrollScope=readingScope()
+        val savedPosition=readingPositions[parcelScrollScope]
+        val generation=++readingRenderGeneration
+        restoringReading=true
+        try {renderListContent()} finally {
+            parcelCards.keys.retainAll(renderedCards)
+            renderGoods=null;renderCollected=null
+        }
+        parcelScroll?.let {scroll->scroll.doOnPreDraw {
+            if(parcelScroll===scroll && generation==readingRenderGeneration) {
+                val maxScroll=((scroll.getChildAt(0)?.height ?: 0)-scroll.height+scroll.paddingTop+scroll.paddingBottom).coerceAtLeast(0)
+                scroll.scrollTo(0,ListReadingPosition.restore(savedPosition,readingRows(),maxScroll))
+                restoringReading=false
+                rememberParcelReading()
+            }
+        }}
+    }
+    private fun renderListContent() {
         list.removeAllViews()
         body.findViewWithTag<View>("history-footer")?.let {body.removeView(it)}
         photoSlots.clear()
         schedulePhotos()
-        val all=HubData.items(this)
+        val all=HubData.items(this,renderGoods.orEmpty())
+        parcelPhotos.keys.retainAll(all.mapTo(mutableSetOf(),::photoKey))
         if(all.isEmpty() && loadingArea.visibility==View.VISIBLE && !showHistory) {
             section("待取件");repeat(3){skeletonParcel()}
             section("最近已取",rangeCaption="近7天",actionTitle="取件历史",action={showHistory=true;renderBody()});repeat(2){skeletonParcel()}
             return
         }
-        val goods=Store.jdGoods(this)
-        val times=HubData.collectedTimes(this)
+        val goods=renderGoods.orEmpty()
+        val times=renderCollected.orEmpty()
         val matched=all.filter {item ->
-            listOf(item.mailNo,item.latestText,item.pickupCode,item.companyName,goods[item.mailNo]?.name.orEmpty()).any {it.contains(search,true)}
+            listOf(item.mailNo,item.latestText,item.pickupCode,item.companyName,productTitle(item)).any {it.contains(search,true)}
         }
         if(search.isNotBlank() && matched.isEmpty()) {
             section("搜索结果")
@@ -597,21 +728,21 @@ class HubActivity : AppCompatActivity() {
             historyDays=selected
             val needsRead=HubData.applyHistoryRange(this,selected)
             panel.close();renderBody()
-            if(needsRead || working || SyncEngine.isBusy())sync(selected,historyImport=true)
+            if(needsRead || working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy())sync(selected,historyImport=true)
             else toast("已切换范围，先显示已有记录")
         };panel.show()
     }
     private fun showHistorySources() {
         val ui=HubSheets(this);val panel=ui.panel("订单来源筛选")
-        var selected=filter
-        val choices=listOf("全部平台","京东","拼多多","淘宝")
+        val choices=listOf("" to "全部平台")+HubData.channels.entries.map {it.key to it.value}
+        var selected=filter.takeIf {saved->choices.any {it.second==saved}} ?: "全部平台"
         val controls=mutableMapOf<String,Pair<LinearLayout,RadioButton>>()
         fun update(){controls.forEach {(key,pair)->pair.second.isChecked=key==selected;pair.first.background=ui.background(if(key==selected)HubUi.paleBlue else Color.WHITE,10)}}
-        choices.forEach {value->
+        choices.forEach {(channel,value)->
             val line=row().apply {minimumHeight=dp(54);setPadding(dp(4),0,dp(8),0);setOnClickListener {selected=value;update()}}
             val radio=RadioButton(this).apply {isClickable=false;isFocusable=false;minimumWidth=0;minimumHeight=0;setPadding(0,0,0,0);buttonTintList=android.content.res.ColorStateList.valueOf(accent)}
             line.addView(radio,LinearLayout.LayoutParams(dp(26),dp(32)))
-            if(value!="全部平台")line.addView(ui.brand(HubData.channels.entries.first {it.value==value}.key,36))
+            if(channel.isNotBlank())line.addView(ui.brand(channel,36))
             line.addView(label(if(value=="全部平台")"全部来源" else value,16,true))
             controls[value]=line to radio;panel.content.addView(line);ui.divider(panel.content)
         }
@@ -697,7 +828,18 @@ class HubActivity : AppCompatActivity() {
         ui.fullButton(confirm.footer,"取消",false,true){confirm.close()};confirm.show()
     }
     private fun parcelRow(parent:LinearLayout,item:ExpressItem,compact:Boolean) {
+        val cacheKey="${item.source}:${item.accountId}:${item.mailNo}:$compact:$showHistory"
+        renderedCards.add(cacheKey)
+        val stamp=CardStamp(item,renderGoods?.get(item.mailNo),collectedSnapshot()[item.mailNo],compact,showHistory,dark,resources.configuration.fontScale)
+        parcelCards[cacheKey]?.takeIf {it.stamp==stamp}?.let {saved->
+            (saved.view.parent as? ViewGroup)?.removeView(saved.view)
+            parent.addView(saved.view)
+            photoSlots.addAll(saved.photos)
+            return
+        }
+        val photoStart=photoSlots.size
         val block=card(parent)
+        block.tag="parcel-reading:${item.source}:${item.accountId}:${item.mailNo}"
         val largeType=resources.configuration.fontScale>1.15f && !compact
         var wideCode:View?=null
         if(!compact)block.setPadding(dp(12),dp(12),dp(12),dp(14))
@@ -706,15 +848,18 @@ class HubActivity : AppCompatActivity() {
         }
         if(!compact || showHistory) {
             val heading=row();heading.addView(sourceBadge(item));heading.addView(View(this),LinearLayout.LayoutParams(0,1,1f))
-            heading.addView(stateChip(if(compact){if(HubData.collectedTimes(this).containsKey(item.mailNo))"本机已取" else "平台已签收"} else "待取件",if(compact)"done" else "pending"))
+            heading.addView(stateChip(if(compact){if(collectedSnapshot().containsKey(item.mailNo))"本机已取" else if(item.source=="douyin" && item.completedAt==0L)"交易完成" else "平台已签收"} else "待取件",if(compact)"done" else "pending"))
             if(!compact)heading.addView(parcelMenu(item));block.addView(heading)
         }
         val product=row().apply {gravity=Gravity.TOP;setPadding(0,if(compact && !showHistory)0 else dp(8),0,dp(6))}
-        product.addView(productImage(item,if(largeType)108 else if(compact)72 else 76))
+        product.addView(productImage(item,if(largeType)108 else if(compact && !showHistory)88 else if(compact)72 else 76,reuse=true))
         val info=column().apply {if(!compact)setPadding(0,dp(3),0,0)}
         val name=row();name.addView(label(productTitle(item),16,true).apply {maxLines=if(largeType)3 else 2;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
         if(compact && !showHistory)name.addView(stateChip(if(ParcelPresentation.stage(item)==ParcelPresentation.Stage.AFTERSALE)"已结束" else "已取件","done"))
         info.addView(name)
+        if(item.relatedGoods.size>1)info.addView(label("同一运单 · ${item.relatedGoods.size} 笔订单 · 查看全部商品 ›",12,true).apply {
+            setTextColor(accent);setPadding(0,dp(5),0,dp(3));setOnClickListener {openDetails(item)}
+        })
         if(compact && showHistory) {
             val historical=item.historicalPickupCode.ifBlank {item.pickupCode}
             run {
@@ -727,10 +872,9 @@ class HubActivity : AppCompatActivity() {
                 info.addView(historyLine,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(7)});info.addView(value)
             }
         } else if(compact) {
-            val at=HubData.collectedTimes(this)[item.mailNo] ?: ParcelPresentation.eventTime(item)
+            val at=collectedSnapshot()[item.mailNo] ?: ParcelPresentation.eventTime(item)
             info.addView(metadataLine("clock",if(ParcelPresentation.stage(item)==ParcelPresentation.Stage.AFTERSALE)item.stateName.ifBlank {"包裹已结束"} else if(at>0)ParcelTime.format(at) else "签收时间未提供").apply {setPadding(0,dp(5),0,0)})
             if(location.isNotBlank())info.addView(metadataLine("location",location))
-            if(item.orderStatus.contains("待确认收货"))info.addView(label("待确认收货",12).apply {setTextColor(muted)})
         } else {
             val code=row().apply {setPadding(0,dp(10),0,0)};code.addView(label("取件码",12).apply {setTextColor(muted)})
             code.addView(label(item.pickupCode.ifBlank {"暂未获取"},if(item.pickupCode.isBlank())17 else 27,true).apply {setTextColor(if(item.pickupCode.isBlank())muted else accent);maxLines=2;contentDescription=if(item.pickupCode.isBlank())"暂未获取取件码" else "取件码 ${item.pickupCode}"},LinearLayout.LayoutParams(0,-2,1f))
@@ -738,6 +882,7 @@ class HubActivity : AppCompatActivity() {
             if(largeType)wideCode=code else info.addView(code)
         }
         product.addView(info,LinearLayout.LayoutParams(0,-2,1f));block.addView(product)
+        if(compact && !showHistory && item.orderStatus.contains("待确认收货"))block.addView(label("商城订单 · 待确认收货",11).apply {setTextColor(muted);setPadding(0,dp(2),0,dp(4))})
         wideCode?.let {block.addView(it)}
         if(!compact && item.pickupCode.isNotBlank()) {
             val issuer=when {item.pickupCodeSource.startsWith("taobao-cainiao")->"菜鸟提供";item.pickupCodeSource=="pdd-official"->"拼多多提供";else->""}
@@ -752,9 +897,9 @@ class HubActivity : AppCompatActivity() {
         }
         if(compact && showHistory) {
             if(location.isNotBlank())block.addView(metadataLine("location",location))
-            val localAt=HubData.collectedTimes(this)[item.mailNo]
+            val localAt=collectedSnapshot()[item.mailNo]
             val at=localAt ?: ParcelPresentation.eventTime(item)
-            val event=metadataLine("clock",(if(at>0)ParcelTime.format(at) else "签收时间未提供")+if(localAt!=null)" · 本机标记已取" else " · 平台已签收")
+            val event=metadataLine("clock",if(item.source=="douyin")ParcelPresentation.historySubtitle(item,localAt) else (if(at>0)ParcelTime.format(at) else "签收时间未提供")+if(localAt!=null)" · 本机标记已取" else " · 平台已签收")
             if(localAt!=null)event.addView(label("撤销",11).apply {setTextColor(accent);background=GradientDrawable().apply {setColor(HubUi.paleBlue);cornerRadius=dp(6).toFloat()};setPadding(dp(6),dp(4),dp(6),dp(4));setOnClickListener {HubData.collect(this@HubActivity,item,false);renderList()};TouchTargets.expand(this)})
             block.addView(event)
         }
@@ -766,17 +911,12 @@ class HubActivity : AppCompatActivity() {
         waybillRow(block,item,details=compact && !showHistory)
         if(compact && showHistory){block.isClickable=true;block.setOnClickListener {openDetails(item)}}
         if(compact) {
+            parcelCards[cacheKey]=SavedCard(stamp,block,photoSlots.subList(photoStart,photoSlots.size).toList())
             return
         }
         val service=PickupUiPolicy.identity(item)
         val actions=ParcelActionsLayout(this)
-        if(PickupUiPolicy.offerPdd(item)) {
-            actions.addView(button("多多代收点查询"){openPddCollection()}.apply {
-                setTextColor(PlatformStyle.accent("pdd"));backgroundTintList=android.content.res.ColorStateList.valueOf(if(dark)Color.rgb(65,35,43) else Color.rgb(255,235,238));strokeWidth=0
-                icon=HubIcon("external",PlatformStyle.accent("pdd"),dp(20));iconSize=dp(20);iconPadding=dp(6);iconGravity=MaterialButton.ICON_GRAVITY_TEXT_START;textSize=15f;setTypeface(Typeface.create("sans-serif",Typeface.BOLD));maxLines=2;minWidth=0;minimumWidth=0;setPadding(dp(8),0,dp(8),0)
-                contentDescription="多多代收点查询，打开官方页面"
-            })
-        } else if(service.isNotBlank()) {
+        if(service.isNotBlank()) {
             actions.addView(button(IdentityRoutes.route(service).title){IdentityLauncher.open(this,service,PickupUiPolicy.account(item,service))}.apply {
                 textSize=15f;setTypeface(Typeface.create("sans-serif",Typeface.BOLD));maxLines=2;minWidth=0;minimumWidth=0;setPadding(dp(8),0,dp(8),0);strokeWidth=0
                 icon=HubIcon("identity",accent,dp(20));iconSize=dp(20);iconPadding=dp(6);iconGravity=MaterialButton.ICON_GRAVITY_TEXT_START
@@ -791,14 +931,19 @@ class HubActivity : AppCompatActivity() {
         } else actions.addView(button("选择取件服务"){chooseIdentity(item)}.apply {textSize=13f;minWidth=0;minimumWidth=0})
         actions.addView(button("物流详情"){openDetails(item)}.apply {tag="secondary";textSize=13f;maxLines=1;minWidth=0;minimumWidth=0;strokeWidth=0;setPadding(dp(16),0,dp(16),0);setTextColor(muted);backgroundTintList=android.content.res.ColorStateList.valueOf(Color.rgb(239,248,255));icon=HubIcon("chevron",muted,dp(14));iconSize=dp(14);iconPadding=dp(4);iconGravity=MaterialButton.ICON_GRAVITY_TEXT_END;contentDescription="查看物流详情"})
         block.addView(actions,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(8)})
+        parcelCards[cacheKey]=SavedCard(stamp,block,photoSlots.subList(photoStart,photoSlots.size).toList())
     }
     private fun transitRow(parent:LinearLayout,item:ExpressItem) {
         val block=card(parent)
+        block.tag="parcel-reading:${item.source}:${item.accountId}:${item.mailNo}"
         val source=row();source.addView(sourceBadge(item));source.addView(View(this),LinearLayout.LayoutParams(0,1,1f));source.addView(stateChip(TransitGroup.label(item),"transit"));block.addView(source)
-        val product=row().apply {gravity=Gravity.TOP;setPadding(0,dp(8),0,dp(8))};product.addView(productImage(item,72))
+        val product=row().apply {gravity=Gravity.TOP;setPadding(0,dp(8),0,dp(8))};product.addView(productImage(item,72,reuse=true))
         val info=column();val heading=row()
         heading.addView(label(productTitle(item),16,true).apply {maxLines=2;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(0,-2,1f))
         info.addView(heading)
+        if(item.relatedGoods.size>1)info.addView(label("同一运单 · ${item.relatedGoods.size} 笔订单 · 查看全部商品 ›",12,true).apply {
+            setTextColor(accent);setPadding(0,dp(5),0,0);setOnClickListener {openDetails(item)}
+        })
         val progress=item.latestText.ifBlank {item.orderStatus}.ifBlank {TransitGroup.label(item)}
         info.addView(metadataLine("truck",progress).apply {setPadding(0,dp(8),0,0);contentDescription="运输进度：$progress";setOnClickListener {openDetails(item)}})
         product.addView(info,LinearLayout.LayoutParams(0,-2,1f));block.addView(product)
@@ -811,7 +956,9 @@ class HubActivity : AppCompatActivity() {
     }
     private fun sync(days:Int=HistoryRangePolicy.clamp(HubData.prefs(this).getInt("sync_days",7)),historyImport:Boolean=false,automatic:Boolean=false,channels:Set<String>?=null) {
         photoJob?.cancel()
-        if (working || SyncEngine.isBusy()) {
+        refreshFinishedUntil=0L
+        if(SyncRunCoordinator.isBusy() && !working){reflectBackgroundSync();if(!automatic)toast("后台同步正在进行，已有订单可查看");return}
+        if (working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy()) {
             if(channels!=null && !automatic){channels.forEach(bindingSyncQueue::requestManual);toast("已加入同步队列");handler.post(drainBindingSync);return}
             if(historyImport){bindingSyncQueue.requestRange(days);busy?.cancel();status.text="正在切换到近 $days 天，旧查询清理后自动读取。";if(tab==0 && showHistory)renderList();handler.post(drainBindingSync);return}
             if(automatic){(channels ?: HubData.channels.keys).forEach(bindingSyncQueue::request);handler.post(drainBindingSync);return}
@@ -821,6 +968,11 @@ class HubActivity : AppCompatActivity() {
         HubData.prefs(this).edit().putInt("sync_days",days).apply()
         activeHistoryDays=days.takeIf {historyImport};activeBindingChannels=channels.orEmpty();activeManualSync=channels!=null && !automatic
         busy=lifecycleScope.launch(start=CoroutineStart.LAZY) {
+            if(!SyncRunCoordinator.acquire(this@HubActivity,recordAttempt=channels==null))return@launch
+            var runSucceeded=false
+            var pddDiagnosticStarted=false
+            var pddDiagnosticOutcome="同步未完成，已有数据保留"
+            if(!historyImport)HubData.prefs(this@HubActivity).edit().putLong("foreground_sync_attempt_at",System.currentTimeMillis()).apply()
             syncButton.text=""
             showLoading("正在同步近 $days 天记录与未完成包裹",immediate=true)
             try {
@@ -830,18 +982,20 @@ class HubActivity : AppCompatActivity() {
                     account.id to if(historyImport)ParcelTime.cutoff(days) else SyncLedger.window(this@HubActivity,"pdd",account.id).since
                 }
                 val skip=setOf("xiaomi")+(if(channels==null)emptySet() else Store.CHANNELS.filter {it !in channels}.toSet())
+                pddDiagnosticStarted="pdd" !in skip && Store.accounts(this@HubActivity,"pdd").any {it.enabled}
                 val synchronize:suspend ()->SyncEngine.Report={SyncEngine.sync(this@HubActivity,skip=skip,historyImport=historyImport,automatic=automatic,supplementPickup=false,onProgress={p->runOnUiThread {updateLoading(p.label,p.current,p.total)}})}
                 val report=if(historyImport)synchronize() else withTimeout(180000){synchronize()}
                 val names=report.statuses.joinToString("；") { "${HubData.channels[it.channel] ?: it.channel}：${SyncStatusText.describe(it.channel,it.count,it.error)}" }
                 report.statuses.forEach {entry->HubData.prefs(this@HubActivity).edit()
                     .putString("binding_sync_result_${entry.channel}",SyncStatusText.describe(entry.channel,entry.count,entry.error))
-                    .putString("binding_sync_brief_${entry.channel}",if(entry.error!=null)"读取失败" else "已更新")
+                    .putString("binding_sync_brief_${entry.channel}",if(entry.channel=="pdd" && entry.error==null)"更新物流中" else SyncStatusText.brief(entry.count,entry.error))
                     .putInt("binding_sync_days_${entry.channel}",days).putLong("binding_sync_at_${entry.channel}",System.currentTimeMillis()).apply()}
                 recordSyncUiResults(report,days,pddObservedSince)
                 status.text=names
                 if(tab==0)renderList()
                 val detailPrefs=HubData.prefs(this@HubActivity)
-                val pddCanRefresh=report.statuses.firstOrNull {it.channel=="pdd"}?.let {it.error==null || it.count>0}==true
+                val pddStatus=report.statuses.firstOrNull {it.channel=="pdd"}
+                val pddCanRefresh=PddDetailQueryPolicy.mayReadDetails(pddStatus!=null,pddStatus?.count ?: 0,pddStatus?.error)
                 fun fetchedAt(item:ExpressItem)=detailPrefs.getLong("detail_at_${item.source}_${item.accountId}_${item.id}",0)
                 fun withinDetailScope(item:ExpressItem):Boolean {
                     val latest=Store.pddTraces(this@HubActivity,item.mailNo)?.let {LatestLogistics.point(it)}
@@ -850,36 +1004,79 @@ class HubActivity : AppCompatActivity() {
                     val freshAwaiting=item.observedAt>=pddObservedSince && (item.orderStatus.contains("待收货") || item.orderStatus.contains("待确认收货"))
                     return PddPagingPolicy.refreshInScope(item,detailSinceByAccount[item.accountId] ?: ParcelTime.cutoff(days),physicalActive,freshAwaiting)
                 }
-                val metadata=HubData.items(this@HubActivity).filter {item->
+                var detailCacheSkipped=0;var detailRetrySkipped=0
+                val metadata=Store.items(this@HubActivity).filter {item->
                     val key="${item.accountId}_${item.id}"
-                    pddCanRefresh && withinDetailScope(item) && (item.isOrderNumber || item.latestTime.isBlank() || detailPrefs.getInt("pdd_detail_version_$key",0)<14 || System.currentTimeMillis()-fetchedAt(item)>=15*60*1000L) &&
-                        PddDetailQueryPolicy.mayAttempt(System.currentTimeMillis(),detailPrefs.getLong("pdd_detail_retry_$key",0),detailPrefs.getString("pdd_detail_status_$key","")==PddDetailQueryPolicy.fingerprint(item))
+                    if(!pddCanRefresh || !withinDetailScope(item))false
+                    else if(!PddDetailQueryPolicy.needsRefresh(item,System.currentTimeMillis(),fetchedAt(item),detailPrefs.getInt("pdd_detail_version_$key",0))) {detailCacheSkipped++;false}
+                    else if(!PddDetailQueryPolicy.mayAttempt(System.currentTimeMillis(),detailPrefs.getLong("pdd_detail_retry_$key",0),detailPrefs.getString("pdd_detail_status_$key","")==PddDetailQueryPolicy.fingerprint(item),manual=!automatic)) {detailRetrySkipped++;false}
+                    else true
                 }.sortedWith(compareBy<ExpressItem> {PddDetailQueryPolicy.priority(it)}.thenBy {fetchedAt(it)})
-                val selected=if(historyImport)metadata else metadata.take(PddDetailQueryPolicy.NORMAL_BATCH)
+                val selected=if(historyImport)metadata else PddDetailQueryPolicy.normalSelection(metadata)
+                if(pddDiagnosticStarted)PddDiagnostics.note(this@HubActivity,"物流任务选择",mapOf("candidates" to metadata.size.toString(),"selected" to selected.size.toString(),"cacheSkipped" to detailCacheSkipped.toString(),"retrySkipped" to detailRetrySkipped.toString(),"listAndPickupElapsedMs" to (System.currentTimeMillis()-pddObservedSince).toString()))
                 val detailStarted=System.currentTimeMillis()
+                var backfillStarted=0L
                 var detailDone=0;var detailFailed=0;var detailAttempted=0
-                if(!historyImport)hideLoading()
+                val detailNotes=mutableListOf<String>()
+                val locationRequests=mutableListOf<PddLocationSupplement.Request>()
+                var pendingReadBeforeHistory=false
+                suspend fun supplementPending() {
+                    CainiaoPickupService.supplement(this@HubActivity,channels,onCandidate={number->runOnUiThread {supplementNumber=number;if(tab==0)renderList()}}) {current,total->status.text="$names\n菜鸟补充取件码 $current/$total";updateLoading("菜鸟补充取件码",current,total)}
+                }
                 for((index,item) in selected.withIndex()) {
-                    val timeout=PddDetailQueryPolicy.remainingTimeout(detailStarted,System.currentTimeMillis(),historyImport)
-                    if(timeout<5000)break
+                    if(!PddDetailQueryPolicy.active(item) && !pendingReadBeforeHistory){supplementPending();pendingReadBeforeHistory=true}
+                    val now=System.currentTimeMillis()
+                    if(!PddDetailQueryPolicy.active(item) && backfillStarted==0L)backfillStarted=now
+                    val timeout=PddDetailQueryPolicy.timeout(item,if(PddDetailQueryPolicy.active(item))detailStarted else backfillStarted,now,historyImport)
+                    if(timeout<5000)continue
                     val key="${item.accountId}_${item.id}"
+                    val readStarted=System.currentTimeMillis()
+                    var readOutcome="成功"
                     detailAttempted++
-                    if(historyImport)updateLoading("获取真实运单与物流",index,selected.size)
-                    else status.text="$names\n补充物流 ${index+1}/${selected.size}；订单已显示，可停止。"
-                    detailPrefs.edit().putLong("pdd_detail_retry_$key",System.currentTimeMillis()+PddDetailQueryPolicy.RETRY_DELAY_MS).putString("pdd_detail_status_$key",PddDetailQueryPolicy.fingerprint(item)).apply()
-                    try {withTimeout(timeout){ParcelMetadata.refresh(this@HubActivity,item)};detailDone++;detailPrefs.edit().putLong("detail_at_${item.source}_${item.accountId}_${item.id}",System.currentTimeMillis()).putInt("pdd_detail_version_$key",14).putLong("pdd_detail_retry_$key",0).apply()}catch(e:TimeoutCancellationException){detailFailed++}catch(e:CancellationException){throw e}catch(_:Exception){detailFailed++}
+                    updateLoading("更新物流，已有订单可查看",index,selected.size)
+                    status.text="$names\n补充物流 ${index+1}/${selected.size}；订单已显示，可停止。"
+                    detailPrefs.edit().remove("pdd_detail_path_$key").putLong("pdd_detail_retry_$key",System.currentTimeMillis()+PddDetailQueryPolicy.RETRY_DELAY_MS).putString("pdd_detail_status_$key",PddDetailQueryPolicy.fingerprint(item)).apply()
+                    try {withTimeout(timeout){ParcelMetadata.refresh(this@HubActivity,item){snapshot->locationRequests.add(PddLocationSupplement.Request(item,snapshot))}};detailDone++;detailPrefs.edit().putLong("detail_at_${item.source}_${item.accountId}_${item.id}",System.currentTimeMillis()).putInt("pdd_detail_version_$key",PddDetailQueryPolicy.VERSION).putLong("pdd_detail_retry_$key",0).apply()}
+                    catch(e:TimeoutCancellationException){detailFailed++;readOutcome="请求超时"}
+                    catch(e:CancellationException){throw e}
+                    catch(e:Exception){detailFailed++;readOutcome=if(SyncStatusText.requiresLogin(e.message.orEmpty()))"会话需要恢复" else "未取得有效物流"}
+                    val readMs=System.currentTimeMillis()-readStarted
+                    PddDiagnostics.note(this@HubActivity,"单票物流结束",mapOf("accountRef" to PddDiagnosticPayload.ref(item.accountId),"orderRef" to PddDiagnosticPayload.ref(item.id),"parcelRef" to PddDiagnosticPayload.ref(item.mailNo),"before" to ParcelPresentation.stage(item).name,"outcome" to readOutcome,"path" to detailPrefs.getString("pdd_detail_path_$key","网页或网络未完成").orEmpty(),"readMs" to readMs.toString(),"waitMs" to (readStarted-detailStarted).toString()))
+                    detailNotes+="${if(item.isOrderNumber)"订单" else "运单"}尾号${item.mailNo.takeLast(4)}：$readOutcome；${detailPrefs.getString("pdd_detail_path_$key","网页或网络未完成")}；读取 ${readMs}ms；本轮等待 ${readStarted-detailStarted}ms。"
+                    updateLoading("更新物流，已有订单可查看",index+1,selected.size)
                     if(tab==0)renderList()
                 }
                 SyncLedger.commit(this@HubActivity)
                 // New PDD details may reveal a waybill after sync; retry limits skip earlier attempts.
-                CainiaoPickupService.supplement(this@HubActivity,channels,onCandidate={number->runOnUiThread {supplementNumber=number;if(tab==0)renderList()}}) {current,total->status.text="$names\n菜鸟补充取件码 $current/$total";updateLoading("菜鸟补充取件码",current,total)}
+                supplementPending()
+                val locationStarted=System.currentTimeMillis()
+                if(locationRequests.isNotEmpty())detailPrefs.edit().putString("binding_sync_brief_pdd","补充地点").apply()
+                val locations=PddLocationSupplement.run(this@HubActivity,locationRequests,automatic){current,total->
+                    updateLoading("补充取件地点，物流状态已更新",current,total)
+                    status.text="$names\n物流状态已更新，正在补充取件地点 $current/$total；已有订单可查看。"
+                    if(tab==0)renderList()
+                }
+                val locationMs=System.currentTimeMillis()-locationStarted
+                if(pddDiagnosticStarted)PddDiagnostics.note(this@HubActivity,"地点补充结束",mapOf("candidates" to locationRequests.size.toString(),"attempted" to locations.attempted.toString(),"restored" to locations.restored.toString(),"deferred" to locations.deferred.toString(),"elapsedMs" to locationMs.toString()))
+                if(report.statuses.any {it.channel=="pdd"})detailPrefs.edit().putString("pdd_location_diagnostic","fix8：状态与取件地点从完整物流页同次读取，不执行二次地点补查。").apply()
                 val deferred=metadata.size-detailAttempted
-                if(report.statuses.any {it.channel=="pdd"})detailPrefs.edit().putString("pdd_detail_diagnostic","物流详情：候选 ${metadata.size}；尝试 $detailAttempted；成功 $detailDone；未取得有效详情 $detailFailed；待下次补充 $deferred。\n普通刷新最多4条、总预算40秒；失败同状态10分钟内不重复查。待取件缺码时通过已绑定淘宝菜鸟补充，收件核验由你在官方页面完成。").apply()
-                val final="$names\n${SimpleDateFormat("MM-dd HH:mm",Locale.CHINA).format(Date())} 更新 · 取件码仅展示平台实际提供的信息。"+
+                if(report.statuses.any {it.channel=="pdd"})detailPrefs.edit().putString("pdd_detail_diagnostic","触发：${if(automatic)"自动同步" else if(historyImport)"历史范围读取" else "手动刷新"}；本轮开始 ${ParcelTime.format(pddObservedSince)}。\n物流详情：候选 ${metadata.size}；尝试 $detailAttempted；成功 $detailDone；未取得有效详情 $detailFailed；待下次补充 $deferred；缓存间隔跳过 $detailCacheSkipped；失败重试间隔跳过 $detailRetrySkipped。\n订单与取件服务阶段 ${detailStarted-pddObservedSince}ms；详情及查码阶段 ${System.currentTimeMillis()-detailStarted}ms。\n${detailNotes.joinToString("\n")}\n0.9.9：同次读取状态与地点；区分站点名称与取件提示句，清理旧版误存提示并复用已核验的缓存轨迹。排除多多买菜业务订单；同末端运单保留全部关联商品。每单独立页面并核对订单归属，不追加地点补查。未完成包裹逐条更新，每条最多25秒，可停止；普通刷新历史补充最多4条、预算40秒，所选历史范围读取会继续补充范围内订单。自动同步失败同状态10分钟内不重复查，手动刷新可立即重试。订单列表读取完成不代表物流详情已更新；拼多多物流与多多取快递共同更新包裹：取快递返回的明确已取记录可完成包裹，菜鸟补充缺失取件码；收件核验由你在官方页面完成。").apply()
+                val detailError=SyncStatusText.detailsError(report.statuses.firstOrNull {it.channel=="pdd"}?.error,detailFailed,detailRetrySkipped)
+                val finalReport=report.copy(statuses=report.statuses.map {if(it.channel=="pdd")it.copy(error=detailError) else it})
+                finalReport.statuses.firstOrNull {it.channel=="pdd"}?.let {entry->
+                    detailPrefs.edit().putString("binding_sync_brief_pdd",SyncStatusText.brief(entry.count,entry.error))
+                        .putString("binding_sync_result_pdd",SyncStatusText.describe("pdd",entry.count,entry.error)).apply()
+                }
+                recordSyncUiResults(finalReport,days,pddObservedSince)
+                val finalNames=finalReport.statuses.joinToString("；") {"${HubData.channels[it.channel] ?: it.channel}：${SyncStatusText.describe(it.channel,it.count,it.error)}"}
+                val final="$finalNames\n${SimpleDateFormat("MM-dd HH:mm",Locale.CHINA).format(Date())} 更新 · 取件码仅展示平台实际提供的信息。"+
                     (if(deferred>0)"\n还有 $deferred 条拼多多物流待补充，下次刷新继续。" else "")+
                     (if(detailFailed>0)"\n$detailFailed 条拼多多详情未取得有效结果，保留已有信息。" else "")+
+                    (if(locations.deferred>0)"\n${locations.deferred} 条取件地点待补充，已取得的物流状态不受影响。" else "")+
                     (if(SyncLedger.awaitingPddDetails(this@HubActivity))"\n部分拼多多签收时间尚未核实，已保留读取结果。" else "")
-                if(report.statuses.all {it.error==null}) {
+                runSucceeded=channels==null && finalReport.statuses.all {it.error==null}
+                pddDiagnosticOutcome=finalReport.statuses.firstOrNull {it.channel=="pdd"}?.let {if(it.error==null)"完成" else it.error}.orEmpty()
+                if(finalReport.statuses.all {it.error==null}) {
                     refreshFinishedUntil=android.os.SystemClock.uptimeMillis()+3000
                     handler.postDelayed({if(!isFinishing && !isDestroyed)refreshStatusChips()},3100)
                 }
@@ -887,7 +1084,7 @@ class HubActivity : AppCompatActivity() {
             } catch(e:TimeoutCancellationException) { status.text="同步超时，已保留本地包裹。请检查网络或重新登录。" }
             catch(e:CancellationException) { SyncLedger.cancel();throw e }
             catch(e:Exception) { status.text=e.message ?: "同步失败，请稍后重试" }
-            finally { supplementNumber=null;WebFetchRegistry.cancel(this@HubActivity);hideLoading();syncButton.text="";activeHistoryDays=null;activeBindingChannels=emptySet();activeManualSync=false;refreshStatusChips();handler.post {if(!isFinishing && !isDestroyed){if(tab==0)renderList() else if(tab==2)renderBody();drainBindingSync.run()}} }
+            finally { if(pddDiagnosticStarted)PddDiagnostics.finish(this@HubActivity,pddDiagnosticOutcome);SyncRunCoordinator.finish(this@HubActivity,runSucceeded);supplementNumber=null;WebFetchRegistry.cancel(this@HubActivity);hideLoading();syncButton.text="";activeHistoryDays=null;activeBindingChannels=emptySet();activeManualSync=false;refreshStatusChips();handler.post {if(!isFinishing && !isDestroyed){if(tab==0)renderList() else if(tab==2)renderBody();drainBindingSync.run()}} }
         }
         busy?.start()
     }
@@ -933,7 +1130,7 @@ class HubActivity : AppCompatActivity() {
         ui.fullButton(login.footer,"稍后",false){pendingLookup="";login.close()};login.show()
     }
     private fun startQuery(number:String,resolveItem:ExpressItem?=null) {
-        if(working || SyncEngine.isBusy()){queuedLookup=number;didAutoSync=true;handler.post(drainBindingSync);toast("运单查询已排队");return}
+        if(working || SyncEngine.isBusy() || SyncRunCoordinator.isBusy()){queuedLookup=number;didAutoSync=true;handler.post(drainBindingSync);toast("运单查询已排队");return}
         pendingLookupReady=false;activeLookup=true
         pendingLookup=number
         busy=lifecycleScope.launch {
@@ -1002,8 +1199,9 @@ class HubActivity : AppCompatActivity() {
         if(item.historicalPickupCode.isNotBlank()){ui.gap(panel.content,24);faq(panel.content,"历史取件码 · 仅供核对",item.historicalPickupCode)}
         ui.gap(panel.content,22)
         if(stage==ParcelPresentation.Stage.PICKUP){
-            val external=item.source=="pdd" && item.pickupCode.isBlank()
-            val actions=ParcelActionsLayout(this);actions.addView(ui.button(if(external)"多多代收点查询" else if(item.source=="jd")"京东身份码" else "出示身份码",false,true){panel.close();if(external)openPddCollection() else chooseIdentity(item)}.apply {textSize=15f;icon=HubIcon(if(external)"external" else "identity",if(external)ui.red else accent,dp(23));iconSize=dp(23);if(external)setTextColor(ui.red)})
+            val service=PickupUiPolicy.identity(item)
+            val actions=ParcelActionsLayout(this)
+            actions.addView(ui.button(if(service.isBlank())"选择取件服务" else IdentityRoutes.route(service).title,false,true){panel.close();if(service.isBlank())chooseIdentity(item) else IdentityLauncher.open(this,service,PickupUiPolicy.account(item,service))}.apply {textSize=15f;icon=HubIcon("identity",accent,dp(23));iconSize=dp(23)})
             actions.addView(ui.button("物流详情 ›",false,true){panel.close();openDetails(item)}.apply {textSize=14f;setTextColor(muted)});panel.content.addView(actions)
         }else if(stage!=ParcelPresentation.Stage.CLOSED)ui.fullButton(panel.content,"物流详情",false,true){panel.close();openDetails(item)}
         if(stage!=ParcelPresentation.Stage.CLOSED){ui.gap(panel.content,22);ui.divider(panel.content);ui.gap(panel.content,10)
@@ -1145,23 +1343,6 @@ class HubActivity : AppCompatActivity() {
         gravity=Gravity.CENTER;setTextColor(Color.WHITE);setPadding(0,0,0,0)
         background=GradientDrawable().apply {setColor(if(key=="taobao")accent else PlatformStyle.accent(key));cornerRadius=dp(10).toFloat()}
     }
-    private fun openPddCollection() {
-        fun open(){
-            val route=IdentityRoutes.route("pdd")
-            val uris=listOf("pinduoduo://com.xunmeng.pinduoduo/mdkd/package?entry_source=11")
-            var opened=false
-            for(url in uris)try {startActivity(Intent(Intent.ACTION_VIEW,Uri.parse(url)).setPackage(route.packageName));opened=true;break}catch(_:ActivityNotFoundException){}catch(_:SecurityException){}
-            if(!opened)toast("未能打开拼多多，请在原App中打开多多买菜包裹查询")
-        }
-        if(HubData.prefs(this).getBoolean("pdd_collection_help_seen",false)){open();return}
-        val ui=HubSheets(this);val panel=ui.panel("多多买菜代收点查询")
-        ui.gap(panel.content,18)
-        panel.content.addView(ui.text("前往拼多多原 App，查看当前账号的包裹与取件信息。能否查到取件码，以官方页面为准。",17,false,muted))
-        ui.gap(panel.content,24);panel.content.addView(ui.text("返回哆啦不会自动标记已取。",15,false,muted).apply {setCompoundDrawablesRelativeWithIntrinsicBounds(HubIcon("info",muted,dp(25)),null,null,null);compoundDrawablePadding=dp(12)})
-        ui.gap(panel.content,18)
-        ui.fullButton(panel.footer,"打开官方页面") {panel.close();HubData.prefs(this).edit().putBoolean("pdd_collection_help_seen",true).apply();open()}.apply {icon=HubIcon("external",Color.WHITE,dp(22));iconGravity=MaterialButton.ICON_GRAVITY_TEXT_END;iconSize=dp(22)}
-        ui.fullButton(panel.footer,"取消",false,true) {panel.close()};panel.show()
-    }
     private fun identities() {
         val content=scroll().apply {setPadding(dp(14),dp(4),dp(14),dp(12))};content.addView(label("按取件服务选择，出示官方身份码",13).apply {setTextColor(muted);setPadding(0,dp(8),0,dp(25))})
         val panel=card(content)
@@ -1169,19 +1350,9 @@ class HubActivity : AppCompatActivity() {
             if(index>0)divider(panel)
             val line=row().apply {setPadding(0,dp(17),0,dp(17))}
             line.addView(serviceBadge(key),LinearLayout.LayoutParams(dp(56),dp(56)))
-            line.addView(column().apply {addView(label(IdentityRoutes.route(key).title,16,true));addView(label(when(key){"jd"->"京东官方页面出示";"taobao"->"通过淘宝出示";else->"原 App 出示"},12).apply {setTextColor(muted);setPadding(0,dp(7),0,0)})},LinearLayout.LayoutParams(0,-2,1f))
+            line.addView(column().apply {addView(label(IdentityRoutes.route(key).title,16,true));addView(label(when(key){"jd"->"京东官方页面出示";"taobao"->"通过淘宝出示";else->"通过拼多多出示"},12).apply {setTextColor(muted);setPadding(0,dp(7),0,0)})},LinearLayout.LayoutParams(0,-2,1f))
             line.addView(button("出示"){IdentityLauncher.open(this,key)}.apply {textSize=15f;setTypeface(typeface,Typeface.BOLD);maxLines=1;minWidth=dp(76);minimumWidth=dp(76);setPadding(dp(10),0,dp(10),0);strokeWidth=0;backgroundTintList=android.content.res.ColorStateList.valueOf(HubUi.paleBlue);contentDescription="出示${IdentityRoutes.route(key).title}"},LinearLayout.LayoutParams(dp(76),dp(44)))
             panel.addView(line)
-        }
-        content.addView(label("其他取件服务",18,true).apply {setPadding(0,dp(14),0,dp(12))})
-        card(content).apply {
-            minimumHeight=dp(100);gravity=Gravity.CENTER_VERTICAL
-            background=GradientDrawable().apply {setColor(Color.rgb(255,246,246));setStroke(dp(1),Color.rgb(255,215,216));cornerRadius=dp(16).toFloat()}
-            val line=row();line.addView(serviceBadge("pdd"),LinearLayout.LayoutParams(dp(52),dp(52)))
-            line.addView(column().apply {addView(label("多多买菜代收点查询",15,true));addView(label("查看绑定手机号的包裹",12).apply {setTextColor(muted);setPadding(0,dp(7),0,0)})},LinearLayout.LayoutParams(0,-2,1f))
-            line.addView(label("官方页面",11).apply {setTextColor(muted);setCompoundDrawablesRelativeWithIntrinsicBounds(null,null,HubIcon("external",PlatformStyle.accent("pdd"),dp(18)),null);compoundDrawablePadding=dp(6);minimumHeight=dp(44);gravity=Gravity.CENTER_VERTICAL;contentDescription="打开多多买菜代收点查询";setOnClickListener {openPddCollection()}})
-            setOnClickListener {openPddCollection()}
-            addView(line)
         }
         val help=row().apply {setPadding(dp(12),dp(14),dp(12),dp(14));background=GradientDrawable().apply {setColor(Color.TRANSPARENT);setStroke(dp(1),Color.rgb(217,238,252));cornerRadius=dp(14).toFloat()}}
         help.addView(ImageView(this).apply {setImageDrawable(HubIcon("help",muted,dp(28)))},LinearLayout.LayoutParams(dp(28),dp(28)))
@@ -1194,16 +1365,16 @@ class HubActivity : AppCompatActivity() {
         val brand=row().apply {setPadding(dp(8),dp(2),dp(8),dp(12))}
         brand.addView(ImageView(this).apply {setImageResource(com.halo.expressassistant.R.drawable.dora_pocket);contentDescription="百宝袋应用图标"},LinearLayout.LayoutParams(dp(56),dp(56)).apply {marginEnd=dp(14)})
         brand.addView(column().apply {addView(label("哆啦收件箱",18,true));addView(label("平台绑定与同步管理",12).apply {setTextColor(muted);setPadding(0,dp(4),0,0)})},LinearLayout.LayoutParams(0,-2,1f));content.addView(brand)
-        val channels=listOf("jd","pdd","taobao")
+        val channels=listOf("jd","pdd","taobao","douyin").filter {it in HubData.channels}
         val count=channels.count {Store.accounts(this,it).isNotEmpty()}
         val heading=row().apply {minimumHeight=dp(36);setPadding(dp(4),0,dp(4),0)}
         heading.addView(label("平台账号",16,true),LinearLayout.LayoutParams(0,-2,1f))
-        heading.addView(label("已绑定 $count/3",12).apply {setTextColor(muted)});content.addView(heading)
+        heading.addView(label("已绑定 $count/${channels.size}",12).apply {setTextColor(muted)});content.addView(heading)
         val accountsCard=card(content).apply {tag="my-platform-list";setPadding(0,0,0,0)}
         channels.forEachIndexed {index,channel->
             if(index>0)accountsCard.addView(View(this).apply {setBackgroundColor(Color.rgb(237,243,250))},LinearLayout.LayoutParams(-1,dp(1)).apply {leftMargin=dp(14);rightMargin=dp(14)})
             val accounts=Store.accounts(this,channel);val enabled=accounts.filter {it.enabled};val bound=accounts.isNotEmpty()
-            val failed=HubData.prefs(this).getString("binding_sync_brief_$channel","")=="读取失败"
+            val failed=SyncStatusText.needsAttention(HubData.prefs(this).getString("binding_sync_brief_$channel",""))
             val checking=enabled.isNotEmpty() && (failed || channel=="taobao" && enabled.none {it.taobaoOrdersVerified})
             val paused=bound && enabled.isEmpty()
             val syncing=working && enabled.any {channel!="taobao" || it.taobaoOrdersEnabled} && (activeBindingChannels.isEmpty() || channel in activeBindingChannels)
@@ -1217,7 +1388,7 @@ class HubActivity : AppCompatActivity() {
             name.addView(label(state,10).apply {setTextColor(stateColor);setPadding(dp(6),dp(2),dp(6),dp(2));background=GradientDrawable().apply {setColor(when {checking->Color.rgb(255,242,220);bound && !paused->Color.rgb(233,248,241);else->Color.rgb(238,242,248)});cornerRadius=dp(8).toFloat()}},LinearLayout.LayoutParams(-2,-2).apply {marginStart=dp(7)})
             if(bound)name.addView(ImageView(this).apply {setImageDrawable(HubIcon("chevron",muted,dp(11)))},LinearLayout.LayoutParams(dp(11),dp(16)).apply {marginStart=dp(6)})
             copy.addView(name)
-            val desc=when {paused->"保留账号，点账号可重新启用";checking->"上次读取未完成，点账号查看";channel=="jd"->if(bound)"收件快递 · ${enabled.size} 个账号" else "本人及关联手机号的快递";channel=="pdd"->if(bound)"商城订单与物流" else "扫码绑定订单与物流";else->if(bound)"订单已验证 · 菜鸟服务${if(enabled.any {it.cainiaoVerified})"已授权" else "待授权"}" else "商城订单 · 菜鸟取件服务"}
+            val desc=when {paused->"保留账号，点账号可重新启用";checking->"上次读取未完成，点账号查看";channel=="jd"->if(bound)"收件快递 · ${enabled.size} 个账号" else "本人及关联手机号的快递";channel=="pdd"->if(bound)"商城订单与物流" else "扫码绑定订单与物流";channel=="douyin"->"商城订单与运单 · 轨迹待支持";else->if(bound)"订单已验证 · 菜鸟服务${if(enabled.any {it.cainiaoVerified})"已授权" else "待授权"}" else "商城订单 · 菜鸟取件服务"}
             copy.addView(label(desc,11).apply {setTextColor(muted);setPadding(0,dp(5),0,0);maxLines=2},LinearLayout.LayoutParams(-1,-2))
             line.addView(copy,LinearLayout.LayoutParams(0,-2,1f).apply {marginEnd=dp(8)})
             val title=when {paused->"已暂停";syncing->"同步中";queued->"已排队";bound->"同步";else->"绑定"}
@@ -1228,15 +1399,8 @@ class HubActivity : AppCompatActivity() {
             }
             line.addView(action,LinearLayout.LayoutParams(-2,-2));accountsCard.addView(line)
         }
-        accountsCard.addView(View(this).apply {setBackgroundColor(Color.rgb(237,243,250))},LinearLayout.LayoutParams(-1,dp(1)).apply {leftMargin=dp(14);rightMargin=dp(14)})
-        val future=row().apply {minimumHeight=dp(76);setPadding(dp(12),dp(12),dp(12),dp(12));tag="my-platform-douyin"}
-        future.addView(label("抖",23,true).apply {gravity=Gravity.CENTER;setTextColor(Color.WHITE);background=GradientDrawable().apply {setColor(Color.rgb(111,113,128));cornerRadius=dp(11).toFloat()}},LinearLayout.LayoutParams(dp(44),dp(44)).apply {marginEnd=dp(11)})
-        future.addView(column().apply {val name=row();name.addView(label("抖音商城",15,true));name.addView(label("规划中",10).apply {setTextColor(muted);setPadding(dp(6),dp(2),dp(6),dp(2));background=OfficialFlowUi.rounded(this@HubActivity,Color.rgb(238,242,248),8)},LinearLayout.LayoutParams(-2,-2).apply {marginStart=dp(7)});addView(name);addView(label("接入后可在这里绑定",11).apply {setTextColor(muted);setPadding(0,dp(5),0,0)})},LinearLayout.LayoutParams(0,-2,1f))
-        future.addView(label("待接入",13).apply {gravity=Gravity.CENTER;setTextColor(muted);background=OfficialFlowUi.rounded(this@HubActivity,Color.rgb(237,241,247),11)},LinearLayout.LayoutParams(dp(62),dp(44)));accountsCard.addView(future)
         card(content).apply {setPadding(dp(14),0,dp(14),0);(layoutParams as LinearLayout.LayoutParams).topMargin=dp(12);bindingRow(this,"取件历史","clock","查看"){tab=0;showHistory=true;historyDays=HubData.historyRange(this@HubActivity);renderBody()};bindingRow(this,"同步结果与帮助","help"){showRecentResults()}}
-        val auto=row().apply {minimumHeight=dp(50);setPadding(dp(14),0,dp(14),0)}
-        auto.addView(label("自动同步",14),LinearLayout.LayoutParams(0,-2,1f))
-        auto.addView(CompactSyncSwitch(this).apply {isChecked=HubData.prefs(this@HubActivity).getBoolean("auto_open",true);setOnCheckedChangeListener {_,enabled->HubData.prefs(this@HubActivity).edit().putBoolean("auto_open",enabled).apply()}},LinearLayout.LayoutParams(dp(48),dp(48)));content.addView(auto)
+        BackgroundSyncSettings.add(this,content)
         val footer=row().apply {setPadding(dp(14),0,dp(14),0)}
         footer.addView(label("更多设置",12).apply {setTextColor(muted);minimumHeight=dp(44);gravity=Gravity.CENTER_VERTICAL;setOnClickListener {val ui=HubSheets(this@HubActivity);val panel=ui.panel("更多设置");ui.actionRow(panel.content,"手动导入取件信息","","parcel"){panel.close();importDialog()};ui.actionRow(panel.content,"设备与版本信息","","info"){panel.close();showVersionPanel()};panel.show()}},LinearLayout.LayoutParams(0,-2,1f))
         footer.addView(label("版本信息 ›",12).apply {setTextColor(muted);minimumHeight=dp(44);gravity=Gravity.CENTER_VERTICAL;setOnClickListener {showVersionPanel()}});content.addView(footer)
@@ -1246,7 +1410,7 @@ class HubActivity : AppCompatActivity() {
         settingsPage=null;bindingChannel=channel;tab=2;renderBody()
     }
     private fun startBindingLogin(channel:String,fresh:Boolean=false,accountId:String="",cainiaoOnly:Boolean=false) {
-        val cls=when(channel){"jd"->JdLoginActivity::class.java;"taobao"->TbLoginActivity::class.java;else->PddLoginActivity::class.java}
+        val cls=when(channel){"jd"->JdLoginActivity::class.java;"taobao"->TbLoginActivity::class.java;"douyin"->DouyinLoginActivity::class.java;else->PddLoginActivity::class.java}
         platformLauncher.launch(Intent(this,cls).putExtra("freshLogin",fresh).putExtra("login_account_id",accountId).putExtra("cainiao_only",cainiaoOnly))
     }
     private fun bindingRow(parent:LinearLayout,title:String,icon:String,value:String="",action:()->Unit) {
@@ -1276,7 +1440,7 @@ class HubActivity : AppCompatActivity() {
         val accounts=Store.accounts(this,channel)
         val enabled=accounts.count {it.enabled}
         val bindingPrefs=HubData.prefs(this)
-        val needsRecovery=bindingPrefs.getString("binding_sync_brief_$channel","")=="读取失败"
+        val needsRecovery=SyncStatusText.requiresLogin(bindingPrefs.getString("binding_sync_result_$channel","").orEmpty())
         fun entry(parent:LinearLayout,name:String,icon:String,value:String="",strong:Boolean=false,action:()->Unit) {
             val line=ui.row().apply {minimumHeight=dp(if(strong)40 else 36);setOnClickListener {action()};isClickable=true;isFocusable=true;contentDescription=listOf(name,value).filter {it.isNotBlank()}.joinToString("，")}
             line.addView(ui.icon(icon,ink,if(strong)23 else 19),LinearLayout.LayoutParams(dp(26),dp(if(strong)24 else 20)).apply {marginEnd=dp(10)})
@@ -1289,14 +1453,14 @@ class HubActivity : AppCompatActivity() {
         card(content).apply {
             val heading=row()
             heading.addView(ui.brand(channel,52),LinearLayout.LayoutParams(dp(52),dp(52)).apply {marginEnd=dp(12)})
-            heading.addView(column().apply {addView(ui.text(if(channel=="jd")"京东物流" else title,17,true));addView(ui.text(when(channel){"jd"->"同步本人及已关联手机号的快递";"pdd"->"同步本人账号的商城订单与物流";else->"同步商城订单，独立授权菜鸟服务"},11,false,muted).apply {maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(5)})},LinearLayout.LayoutParams(0,-2,1f))
+            heading.addView(column().apply {addView(ui.text(if(channel=="jd")"京东物流" else title,17,true));addView(ui.text(when(channel){"jd"->"同步本人及已关联手机号的快递";"pdd"->"同步本人账号的商城订单与物流";"douyin"->"同步实物订单与运单，完整轨迹暂不可用";else->"同步商城订单，独立授权菜鸟服务"},11,false,muted).apply {maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(5)})},LinearLayout.LayoutParams(0,-2,1f))
             heading.addView(ui.badge(if(needsRecovery)"登录需恢复" else if(enabled>0)"已绑定" else if(accounts.isNotEmpty())"已暂停" else "未绑定",if(needsRecovery)ui.orange else if(enabled>0)ui.green else if(accounts.isEmpty())ui.red else muted))
             addView(heading)
             val prefs=HubData.prefs(this@HubActivity)
             val at=prefs.getLong("binding_sync_at_$channel",0)
             if(channel!="pdd" && (!needsRecovery || at>0))addView(ui.text(if(channel in bindingSyncQueue.pending())"等待当前读取完成后同步" else if(channel in activeBindingChannels && working)"正在同步…" else if(at>0)"上次读取：${prefs.getString("binding_sync_result_$channel",prefs.getString("binding_sync_brief_$channel","已更新"))}" else "尚未同步",12,false,muted).apply {maxLines=1;ellipsize=android.text.TextUtils.TruncateAt.END},LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(8);bottomMargin=dp(8)})
             if(channel=="pdd")ui.card(this,Color.rgb(255,247,235),10).apply {addView(ui.text("绑定步骤",13,true,ui.red));ui.gap(this,7);val steps=ui.row();listOf("保存二维码","App 扫码","返回检查").forEachIndexed {index,name->val part=ui.row();part.addView(ui.text("${index+1}",11,true,Color.WHITE).apply {gravity=Gravity.CENTER;background=ui.background(accent,20)},LinearLayout.LayoutParams(dp(18),dp(18)).apply {marginEnd=dp(5)});part.addView(ui.text(name,11,false,muted));steps.addView(part,LinearLayout.LayoutParams(0,-2,1f))};addView(steps)}
-            if(prefs.getString("binding_sync_brief_$channel","")=="读取失败")ui.notice(this,"上次读取未完成","已有记录保留；可恢复登录后重试。","warning")
+            if(SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$channel","")))ui.notice(this,"上次读取未完成",if(needsRecovery)"已有记录保留；可恢复登录后重试。" else "已有记录保留，可直接重试同步。","warning")
             val login=ui.button(if(channel=="pdd")"扫码登录 / 恢复" else "登录 / 恢复",channel=="pdd"){startBindingLogin(channel)}.apply {
                 textSize=14f;maxLines=1;contentDescription="${title}登录或恢复会话"
                 if(channel=="pdd"){icon=HubIcon("qr",Color.WHITE,dp(22));iconSize=dp(22)}
@@ -1335,6 +1499,7 @@ class HubActivity : AppCompatActivity() {
                     openJdBindingPage("https://kd.jd.com/express/family/account?source=wlgwj")
                 }
             }else if(channel=="pdd")entry(this,"登录方式","phone","App 扫码"){showBindingHelp(channel)}
+            else if(channel=="douyin")entry(this,"登录方式","phone","官方扫码 / 手机号"){showBindingHelp(channel)}
             else entry(this,"号码管理 / 亲友授权","phone"){openCainiao(manage=true)}
         }
         if(channel=="pdd")card(content).apply {
@@ -1376,7 +1541,7 @@ class HubActivity : AppCompatActivity() {
     }
     private fun platformResultCard(parent:LinearLayout,channel:String) {
         val ui=HubSheets(this);val prefs=HubData.prefs(this)
-        val failed=prefs.getString("binding_sync_brief_$channel","")=="读取失败"
+        val failed=SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$channel",""))
         ui.card(parent).apply {
             val line=ui.row();line.addView(ui.brand(channel,46),LinearLayout.LayoutParams(dp(46),dp(46)).apply {marginEnd=dp(12)})
             line.addView(ui.column().apply {
@@ -1384,13 +1549,13 @@ class HubActivity : AppCompatActivity() {
                 addView(ui.text(prefs.getString("binding_sync_result_$channel","尚未同步").orEmpty(),13,false,muted),LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(8)})
             },LinearLayout.LayoutParams(0,-2,1f));addView(line)
             isClickable=true;isFocusable=true;contentDescription="${HubData.channels[channel]}同步结果";setOnClickListener {showBindingResult(channel)}
-            if(failed){val recovery=ui.row();recovery.addView(ui.text("已有记录保留",12,false,muted),LinearLayout.LayoutParams(0,-2,1f));recovery.addView(ui.button("登录 / 恢复"){startBindingLogin(channel)}.apply {textSize=13f;minimumHeight=dp(38);minHeight=dp(38)},LinearLayout.LayoutParams(-2,-2));addView(recovery,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(10)})}
+            if(failed){val login=SyncStatusText.requiresLogin(prefs.getString("binding_sync_result_$channel","").orEmpty());val recovery=ui.row();recovery.addView(ui.text("已有记录保留",12,false,muted),LinearLayout.LayoutParams(0,-2,1f));recovery.addView(ui.button(if(login)"登录 / 恢复" else "重试同步"){if(login)startBindingLogin(channel) else sync(channels=setOf(channel))}.apply {textSize=13f;minimumHeight=dp(38);minHeight=dp(38)},LinearLayout.LayoutParams(-2,-2));addView(recovery,LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(10)})}
         }
     }
     private fun showHistoryExplanation() {
         val ui=HubSheets(this);val panel=ui.panel("为什么还需查询？")
         panel.content.addView(ui.text("当前先显示已保存的记录。所选范围还有日期未从平台读取，继续查询后会补充；已有包裹会保留。",14,false,muted))
-        ui.gap(panel.content,16);panel.content.addView(ui.text("历史记录按平台签收或本机标记时间展示；平台读取范围仍受订单时间和官方可查范围约束。",12,false,muted))
+        ui.gap(panel.content,16);panel.content.addView(ui.text("历史记录按平台签收或本机标记时间展示；抖音缺少签收时间时按下单日期展示并标注。平台读取范围仍受订单时间和官方可查范围约束。",12,false,muted))
         ui.fullButton(panel.footer,"继续查询"){panel.close();sync(historyDays,historyImport=true)}
         ui.fullButton(panel.footer,"知道了",false,true){panel.close()};panel.show()
     }
@@ -1398,7 +1563,7 @@ class HubActivity : AppCompatActivity() {
         val prefs=HubData.prefs(this)
         return HubData.channels.keys.any {channel->
             (filter=="全部平台" || HubData.channels[channel]==filter) && Store.accounts(this,channel).any {it.enabled} &&
-                prefs.getString("binding_sync_brief_$channel","")=="读取失败" && prefs.getInt("binding_sync_days_$channel",0)==historyDays
+                SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$channel","")) && prefs.getInt("binding_sync_days_$channel",0)==historyDays
         }
     }
     private fun renderHistoryTasks(parent:LinearLayout) {
@@ -1415,12 +1580,17 @@ class HubActivity : AppCompatActivity() {
         progress.isClickable=true;progress.isFocusable=true;progress.contentDescription="查询进度，点按查看同步详情";progress.setOnClickListener {showSyncDetails()}
         parent.addView(progress,LinearLayout.LayoutParams(-1,-2).apply {bottomMargin=dp(12)})
     }
-    private fun resultText(channel:String):String {
+    private fun resultText(channel:String,fullDiagnostic:Boolean=false):String {
         val prefs=HubData.prefs(this);val parts=mutableListOf<String>()
         prefs.getString("binding_sync_result_$channel",null)?.let {parts.add("本次平台读取：$it")}
         when(channel) {
             "jd"->prefs.getString("jd_sync_diagnostic",null)?.let(parts::add)
-            "pdd"->listOf("pdd_list_diagnostic","pdd_detail_diagnostic","pdd_login_diagnostic").forEach {key->prefs.getString(key,null)?.let(parts::add)}
+            "pdd"->{
+                val keys=if(fullDiagnostic)listOf("pdd_list_diagnostic","pdd_detail_diagnostic","pdd_location_diagnostic","pdd_pickup_diagnostic","pdd_login_diagnostic") else listOf("pdd_list_diagnostic","pdd_detail_diagnostic","pdd_pickup_diagnostic","pdd_login_diagnostic")
+                keys.forEach {key->prefs.getString(key,null)?.let {text->parts.add(if(!fullDiagnostic && key=="pdd_detail_diagnostic")text.substringBefore("\nfix7：").substringBefore("\nfix8：").substringBefore("\nfix9：").substringBefore("\n优先直接") else text)}}
+                parts.add(if(fullDiagnostic)PddDiagnostics.report(this) else PddDiagnostics.summary(this))
+            }
+            "douyin"->prefs.getString("douyin_list_diagnostic",null)?.let(parts::add)
             "taobao"->{prefs.getString("tb_list_diagnostic",null)?.let(parts::add);prefs.getString("pickup_diagnostic",null)?.let {parts.add("菜鸟取件码查询：$it")}}
         }
         return parts.joinToString("\n\n").ifBlank {"尚未进行${HubData.channels[channel]}同步"}
@@ -1454,7 +1624,16 @@ class HubActivity : AppCompatActivity() {
         if(pendingLookup.isBlank()){tab=2;showHistory=false}
         renderBody()
     }
-    private fun copyResult(text:String) {(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("同步结果",text));toast("已复制读取结果")}
+    private fun copyResult(text:String) {(getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("同步结果",text));toast("已复制 ${text.length} 字符")}
+    private fun shareDiagnostic(channel:String) {
+        val text=resultText(channel,true)
+        lifecycleScope.launch {
+            runCatching {
+                val file=withContext(Dispatchers.IO){DiagnosticShare.file(this@HubActivity,channel,text)}
+                if(!isFinishing && !isDestroyed)DiagnosticShare.open(this@HubActivity,file)
+            }.onFailure {toast("分享失败，可选择保存诊断")}
+        }
+    }
     private fun renderSettingsPage() {
         val channel=settingsPlatform;val title=HubData.channels[channel].orEmpty();val prefs=HubData.prefs(this)
         when(settingsPage) {
@@ -1492,23 +1671,23 @@ class HubActivity : AppCompatActivity() {
             }
             "results"->{
                 val ui=HubSheets(this)
-                val failed=HubData.channels.keys.count {prefs.getString("binding_sync_brief_$it","")=="读取失败"}
+                val failed=HubData.channels.keys.count {SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$it",""))}
                 val completed=HubData.channels.keys.count {prefs.getString("binding_sync_brief_$it","")=="已更新"}
                 val content=nestedContent("同步结果",brand=failed==0)
                 if(failed>0){
                     ui.notice(content,if(completed>0)"${completed}个平台读取完成，${failed}个平台未完成" else "平台读取尚未完成","最近读取部分完成，已有记录保留。","warning")
                     ui.card(content,HubUi.paleBlue).apply {ui.actionRow(this,"查询范围：${historyRangeLabel(HubData.historyRange(this@HubActivity))}（含今天）","已有记录保留，可在取件历史扩大查询范围。","clock"){tab=0;showHistory=true;renderBody()}}
-                    listOf("jd","pdd","taobao").forEach {platformResultCard(content,it)}
+                    listOf("jd","pdd","taobao","douyin").filter {it in HubData.channels}.forEach {platformResultCard(content,it)}
                     faq(content,"详细诊断信息（可展开）",HubData.channels.keys.joinToString("\n\n"){resultText(it)})
                     settingsFooter(ui){footer->ui.fullButton(footer,"完成"){backSettingsPage()}}
                 }else ui.card(content).apply {
                     val heading=ui.row();heading.addView(ui.text("同步结果",18,true),LinearLayout.LayoutParams(0,-2,1f))
                     val at=HubData.channels.keys.maxOfOrNull {prefs.getLong("binding_sync_at_$it",0)} ?: 0L
                     if(at>0)heading.addView(ui.text(ParcelTime.format(at),12,false,muted));addView(heading);ui.gap(this,10)
-                    listOf("jd","pdd","taobao").forEach {key->val name=HubData.channels[key].orEmpty()
+                    listOf("jd","pdd","taobao","douyin").filter {it in HubData.channels}.forEach {key->val name=HubData.channels[key].orEmpty()
                         val brief=prefs.getString("binding_sync_brief_$key","尚未同步").orEmpty();val time=prefs.getLong("binding_sync_at_$key",0)
                         ui.divider(this)
-                        ui.actionRow(this,name,listOf(prefs.getString("binding_sync_result_$key","").orEmpty(),if(time>0)ParcelTime.format(time) else "").filter {it.isNotBlank()}.joinToString("\n"),value=brief,tint=if(brief=="读取失败")ui.red else if(brief=="已更新")ui.green else muted,channel=key){showBindingResult(key)}
+                        ui.actionRow(this,name,listOf(prefs.getString("binding_sync_result_$key","").orEmpty(),if(time>0)ParcelTime.format(time) else "").filter {it.isNotBlank()}.joinToString("\n"),value=brief,tint=if(SyncStatusText.needsAttention(brief))ui.orange else if(brief=="已更新")ui.green else muted,channel=key){showBindingResult(key)}
                     }
                     ui.divider(this);ui.actionRow(this,"运单查询",prefs.getString("pickup_diagnostic","尚未进行查询").orEmpty().lineSequence().firstOrNull().orEmpty().take(100),"search") {
                         val panel=ui.panel("运单查码结果");ui.notice(panel.content,"最近查询",prefs.getString("pickup_diagnostic","尚未进行查询").orEmpty());ui.fullButton(panel.footer,"按单号查询"){panel.close();queryDialog()};panel.show()
@@ -1544,16 +1723,20 @@ class HubActivity : AppCompatActivity() {
                         if(at>0){ui.gap(this,10);addView(ui.text("查询时间：${ParcelTime.format(at)}",14,false,muted))}
                     }
                 }
-                val failed=prefs.getString("binding_sync_brief_$channel","")=="读取失败"
+                val failed=SyncStatusText.needsAttention(prefs.getString("binding_sync_brief_$channel",""))
                 ui.card(content).apply {addView(ui.text("同步状态",17,true));ui.gap(this,14);ui.notice(this,if(failed)"读取未完成" else if(at>0)"本次平台读取完成" else "尚未同步",if(failed)"已有记录保留，失败不表示所选范围没有订单。" else "物流详情将分批补充，是否取得取件码以官方返回为准。",if(failed)"warning" else if(at>0)"success" else "info")}
                 faq(content,"查看详细诊断",result)
-                if(failed)ui.fullButton(content,"登录 / 恢复",false,true){startBindingLogin(channel)}
+                if(channel=="pdd"){
+                    ui.fullButton(content,"分享完整诊断（TXT）",false){shareDiagnostic(channel)}
+                    ui.fullButton(content,"保存诊断文件",false){diagnosticExportText=resultText(channel,true);diagnosticExporter.launch("dora-inbox-pdd-diagnostic-${System.currentTimeMillis()}.txt")}
+                }
+                if(failed && SyncStatusText.requiresLogin(prefs.getString("binding_sync_result_$channel","").orEmpty()))ui.fullButton(content,"登录 / 恢复",false,true){startBindingLogin(channel)}
                 settingsFooter(ui){footer->ui.buttons(footer,"复制结果","再次同步",{copyResult(result)},{sync(channels=setOf(channel))})}
             }
             "help"->{
                 val content=nestedContent("${title}帮助")
                 val ui=HubSheets(this)
-                ui.card(content).apply {val line=ui.row();line.addView(ui.brand(channel,52),LinearLayout.LayoutParams(dp(52),dp(52)).apply {marginEnd=dp(14)});line.addView(ui.column().apply {addView(ui.text(when(channel){"pdd"->"拼多多扫码登录帮助";"taobao"->"淘宝登录与授权帮助";else->"京东登录与查询帮助"},17,true));addView(ui.text(when(channel){"jd"->"登录后可查询本人收件的包裹";"pdd"->"通过扫码登录查询您的收件包裹";else->"可查询订单及菜鸟取件服务的包裹"},13,false,muted),LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(7)})},LinearLayout.LayoutParams(0,-2,1f));addView(line)}
+                ui.card(content).apply {val line=ui.row();line.addView(ui.brand(channel,52),LinearLayout.LayoutParams(dp(52),dp(52)).apply {marginEnd=dp(14)});line.addView(ui.column().apply {addView(ui.text(when(channel){"pdd"->"拼多多扫码登录帮助";"taobao"->"淘宝登录与授权帮助";"douyin"->"抖音登录与查询帮助";else->"京东登录与查询帮助"},17,true));addView(ui.text(when(channel){"jd"->"登录后可查询本人收件的包裹";"pdd"->"通过扫码登录查询您的收件包裹";"douyin"->"登录后同步实物订单与运单";else->"可查询订单及菜鸟取件服务的包裹"},13,false,muted),LinearLayout.LayoutParams(-1,-2).apply {topMargin=dp(7)})},LinearLayout.LayoutParams(0,-2,1f));addView(line)}
                 when(channel) {
                     "jd"->{
                         helpSection(content,"登录与恢复","user","使用京东账号登录后，哆啦收件箱将查询本人及京东官网已验证的关联收件号码的包裹。若登录失效，可重新登录或恢复。","打开官网收件列表",true){openJdBindingPage(JdLogisticsSource.LIST_URL)}
@@ -1579,6 +1762,12 @@ class HubActivity : AppCompatActivity() {
                             faq(this,"提示安全验证怎么办？","按官方网页完成姓名、地址或安全核验，返回后点检查登录。")
                             faq(this,"提示账号错误怎么办？","核对网页登录账号和原App当前账号；需要更换时返回绑定页重新扫码。网页与原App会话可能不同。")
                         }
+                    }
+                    "douyin"->{
+                        helpSection(content,"登录与验证","user","在抖音官方页面扫码或手机号登录；如需验证码或其他核验，请完成官方提示。返回后点检查登录，账号与商城订单均验证通过才保存绑定。","登录或恢复",true){startBindingLogin("douyin")}
+                        helpSection(content,"查询范围","clock","默认近7天，最多180天，按下单日期查询（含今天）。电子券、充值等明确虚拟订单排除；履约类型未知的订单暂不导入。")
+                        helpSection(content,"当前支持范围","parcel","可同步商品和真实运单号。交易完成不代表已签收；完整物流轨迹、取件码与签收时间暂未提供，可到抖音 App 查看。")
+                        ui.notice(content,"扫码提示","可在官方网页用手机号登录，或用另一台设备的抖音相机扫描屏幕二维码。抖音暂不支持相册识别登录码，保存二维码和打开 App 不代表登录成功。")
                     }
                     else->{
                         val accounts=Store.accounts(this,"taobao")

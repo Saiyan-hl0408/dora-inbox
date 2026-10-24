@@ -27,6 +27,7 @@ class IdentitySessionPolicy(private val channel: String, private val expectedCoo
                 "jd"->CookiePairs.sameJdAccount(live,expected)
                 "taobao","cainiao"->CookiePairs.sameTaobaoAccount(live,expected)
                 "pdd"->CookiePairs.samePddAccount(live,expected)
+                "douyin"->DouyinSessionPolicy.sameOwner(expectedCookies,liveCookies)
                 else->false
             }
         }

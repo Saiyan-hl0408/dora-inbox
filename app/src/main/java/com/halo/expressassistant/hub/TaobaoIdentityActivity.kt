@@ -134,11 +134,16 @@ class TaobaoIdentityActivity:AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun createPage(account:BoundAccount,guard:IdentitySessionPolicy)=WebView(this).apply {
         settings.apply {javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;useWideViewPort=true;loadWithOverviewMode=true}
+        setBackgroundColor(android.graphics.Color.WHITE)
+        OfficialIdentityLayout.attach(this){expanded,height->if(web===this && verifyOwner(this,account,guard) && IdentityWebPolicy.allowed(url.orEmpty()))shell.updateOfficialLayout(expanded,height)}
+        shell.onCollapse={web?.let(OfficialIdentityLayout::collapse)}
+        addOnLayoutChangeListener {_,_,_,_,_,_,_,_,_->if(web===this && !pageFailed && verifyOwner(this,account,guard))OfficialIdentityLayout.apply(this,"cainiao")}
         CookieManager.getInstance().setAcceptThirdPartyCookies(this,true)
         val automatic=IdentityAutomaticRefresh(this,
             {url->!pageFailed && web===this && !isFinishing && !isDestroyed &&
                 IdentityWebPolicy.allowed(url) && !IdentityWebPolicy.loginPage(url) && verifyOwner(this,account,guard)},
-            {shell.showLoading();shell.message.text="正在准备菜鸟身份码…"})
+            {shell.showLoading();shell.message.text="正在准备菜鸟身份码…"},
+            {shell.showReady();shell.holder.visibility=View.VISIBLE;OfficialIdentityLayout.apply(this,"cainiao")})
         entryRefresh=automatic
         webViewClient=object:WebViewClient() {
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean {
@@ -155,10 +160,10 @@ class TaobaoIdentityActivity:AppCompatActivity() {
             override fun onPageFinished(view:WebView,url:String) {
                 if(!verifyOwner(view,account,guard) || pageFailed)return
                 if(IdentityWebPolicy.loginPage(url)){shell.showReady();shell.message.text="请在官方页面完成登录或号码授权";shell.login.visibility=View.VISIBLE;return}
+                OfficialIdentityLayout.apply(view,"cainiao")
                 if(automatic.afterLoad(url))return
                 shell.showReady()
                 shell.holder.visibility=View.VISIBLE
-                shell.message.text="身份码由菜鸟官方页面实时提供。"
             }
             override fun onReceivedError(view:WebView,request:WebResourceRequest,error:WebResourceError){
                 if(request.isForMainFrame && verifyOwner(view,account,guard)){pageFailed=true;shell.showFailure();shell.message.text="官方页面加载失败，可重新加载页面重试。"}

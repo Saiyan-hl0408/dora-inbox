@@ -64,7 +64,7 @@ internal class HubSheets(private val context:Context) {
         override fun setColorFilter(filter:android.graphics.ColorFilter?){paint.colorFilter=filter;invalidateSelf()}
         @Deprecated("Deprecated in Java") override fun getOpacity()=android.graphics.PixelFormat.TRANSLUCENT
     }
-    fun brand(channel:String,size:Int=46)=text(when(channel){"jd"->"JD";"taobao"->"淘";"cainiao"->"菜";else->"拼"},if(size>40)27 else 21,true,Color.WHITE).apply {
+    fun brand(channel:String,size:Int=46)=text(when(channel){"jd"->"JD";"taobao"->"淘";"cainiao"->"菜";"douyin"->"抖";else->"拼"},if(size>40)27 else 21,true,Color.WHITE).apply {
         gravity=Gravity.CENTER;background=background(if(channel=="cainiao")blue else PlatformStyle.accent(channel),10)
         layoutParams=LinearLayout.LayoutParams(dp(size),dp(size))
     }

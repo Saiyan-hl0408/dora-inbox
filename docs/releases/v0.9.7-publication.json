@@ -1,0 +1,45 @@
+{
+  "date": "2026-10-22",
+  "repository": "https://github.com/Saiyan-hl0408/dora-inbox",
+  "visibility": "public",
+  "branch": "main",
+  "testedSourceSnapshotCommit": "6d67d0cbd614c9f437322409731ea88e8964df62",
+  "release": "https://github.com/Saiyan-hl0408/dora-inbox/releases/tag/v0.9.7-protected",
+  "releaseDraft": false,
+  "apk": {
+    "name": "ParcelHub-v0.9.7-protected.apk",
+    "download": "https://github.com/Saiyan-hl0408/dora-inbox/releases/download/v0.9.7-protected/ParcelHub-v0.9.7-protected.apk",
+    "bytes": 7887482,
+    "sha256": "85c1235d6b273b693097ddc3d82bd8e3a378c6b3921523af645f505351111e5b",
+    "versionName": "0.9.7-personal-protected",
+    "versionCode": 27,
+    "package": "com.songoku.parcelhub",
+    "publicDownloadVerification": {
+      "authenticated": false,
+      "httpStatus": 200,
+      "completeStreamBytes": 7887482,
+      "sha256MatchesOriginalAndUploadedArtifact": true
+    }
+  },
+  "otherReleaseAssets": [
+    "SHA256SUMS.txt",
+    "ParcelHub-v0.9.7-third-party-licenses.zip"
+  ],
+  "sourceValidation": {
+    "debugBuild": "passed",
+    "unitTests": 244,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "privacyHeuristicUnresolvedFindings": 0,
+    "originalSourceHashesUnchanged": true,
+    "originalGitStatusUnchanged": true,
+    "coreMockupCategories": ["home", "logistics-detail", "identity", "my"]
+  },
+  "boundaries": [
+    "Public source snapshot and old protected APK are different products, not byte-reproducible counterparts.",
+    "Commercial permission requirement applies only to project expression the licensor can authorize; upstream permissions remain.",
+    "No real-account or physical-device validation was performed in this publication task.",
+    "No claim of complete originality, legal clean-room development, or technical prevention of infringement."
+  ]
+}

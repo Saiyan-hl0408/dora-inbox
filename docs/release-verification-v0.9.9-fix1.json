@@ -1,0 +1,32 @@
+{
+  "date": "2026-10-25",
+  "file": "dora-inbox-v0.9.9-fix1.apk",
+  "versionName": "0.9.9",
+  "releaseRevision": "0.9.9-fix1",
+  "versionCode": 30,
+  "package": "com.songoku.parcelhub",
+  "minSdk": 29,
+  "targetSdk": 36,
+  "bytes": 8160007,
+  "sha256": "5adbe8ab23f86aa41f4548e8a71d261b3c585986b0bb3246ffc6a73cc9768260",
+  "signatureVerified": true,
+  "signerMatchesV097": true,
+  "signerSha256": "db500a700469f3162be1c5fdc2bc5c30681a2c4587ddae318436ea940ac12023",
+  "recordedProtectedReleaseUnitTests": 417,
+  "publicSourceDebugBuild": "passed",
+  "publicSourceUnitTests": {
+    "tests": 417,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "encryptedScriptAssets": 7,
+  "formalDouyinEnabled": false,
+  "originalSourceHashesUnchanged": true,
+  "originalGitStatusUnchanged": true,
+  "boundaries": [
+    "No real-account login, SMS, emulator installation, phone installation, or station scan performed in this publication task.",
+    "Latest fix1 phone acceptance pending.",
+    "Public source uses separate application ID, neutral assets and an empty station default; original protected APK is not byte-reproducible from that public snapshot."
+  ]
+}

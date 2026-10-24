@@ -10,7 +10,7 @@ object SyncLedger {
     private val proofs=SyncCoverageProofs<Proof>()
     private var onProgress:((String)->Unit)?=null
     private val signatureRanges=java.util.concurrent.ConcurrentHashMap<String,Long>()
-    private fun key(channel:String,accountId:String)="sync_${when(channel){"jd"->"v10_jdl";"pdd"->"v15_order_window";"taobao"->"v19_order_window";else->"v5"}}_${channel}_$accountId"
+    private fun key(channel:String,accountId:String)="sync_${when(channel){"jd"->"v10_jdl";"pdd"->"v15_order_window";"taobao"->"v19_order_window";"douyin"->"v1_douyin_orders";else->"v5"}}_${channel}_$accountId"
     fun begin(progress:((String)->Unit)?=null){proofs.clear();signatureRanges.clear();onProgress=progress}
     /** Cancel only uncommitted evidence; successfully saved parcels and coverage remain intact. */
     fun cancel(){proofs.clear();signatureRanges.clear();onProgress=null}
@@ -27,8 +27,8 @@ object SyncLedger {
                 if(index>=0)cached[index]=SyncCacheMerge.merge(cached[index],fresh) else cached.add(fresh)
             }
             val hidden=Store.xiaomiHidden(context).mapTo(HashSet()){it.mailNo}
-            Store.saveItems(context,cached.filterNot {it.mailNo in hidden})
             if(goods.isNotEmpty())Store.saveJdGoods(context,GoodsCache.mergeAll(Store.jdGoods(context),goods))
+            Store.saveItems(context,cached.filterNot {it.mailNo in hidden})
         }
     }
     fun hasCheckpoint(context:Context,channel:String,accountId:String)=HubData.prefs(context).getLong(key(channel,accountId)+"_at",0)>0
@@ -50,7 +50,7 @@ object SyncLedger {
         val last=prefs.getLong(key(channel,accountId)+"_at",0)
         val import=isExpanding(context,channel,accountId)
         val now=System.currentTimeMillis()
-        if(channel=="taobao")return TbPagingPolicy.window(days,now)
+        if(channel=="taobao" || channel=="douyin")return TbPagingPolicy.window(days,now)
         if(channel=="pdd")return SyncWindow(days,now,PddPagingPolicy.requestedSince(days,now,last,import),exhaustive=import)
         val deltaDays=if(last>0)((now-last).coerceAtLeast(0)/86400000L+2).coerceAtMost(HistoryRangePolicy.MAX_DAYS.toLong()).toInt() else days
         return SyncWindow(if(import)days else maxOf(HistoryRangePolicy.DEFAULT_DAYS,deltaDays),now,if(!import && last>0){maxOf(if(channel=="jd")ParcelTime.cutoff(1,last) else last,ParcelTime.cutoff(HistoryRangePolicy.MAX_DAYS,now))} else null,exhaustive=import)

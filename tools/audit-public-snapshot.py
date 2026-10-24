@@ -14,14 +14,14 @@ PATTERNS = {
     'private-key': r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',
     'provider-token': r'(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|AKIA[A-Z0-9]{16})',
     'personal-machine-path': r'(?:C:[/\\]Users[/\\]|G:[/\\]AI Agent|E:[/\\])',
-    'literal-session-cookie': r'(?:pt_key|cookie2|PASS_ID|PDDAccessToken)=[A-Za-z0-9_%+/.=-]{24,}',
+    'literal-session-cookie': r'(?:pt_key|cookie2|PASS_ID|PDDAccessToken|sessionid|sessionid_ss|sid_guard|msToken|ttwid)=[A-Za-z0-9_%+/.=-]{24,}',
     'long-sensitive-literal': r'(?i)(?:cookie|token|password|api_key|secret|authorization)[\w]*[\"\']?\s*[:=]\s*[\"\'][A-Za-z0-9_+/=. -]{16,}[\"\']',
 }
 DISALLOWED_SUFFIXES = {'.apk', '.aab', '.jks', '.keystore', '.p12', '.pfx', '.hprof', '.log', '.zip'}
 REVIEWED_DOC_IMAGES = {f'docs/images/{name}-mockup.png' for name in ['home','detail','identity','my']}
 findings = []
 reviewed = []
-tracked = subprocess.run(['git', 'ls-files', '-z'], cwd=ROOT, capture_output=True)
+tracked = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT, capture_output=True)
 paths = [ROOT / p for p in tracked.stdout.decode('utf-8').split('\0') if p] if tracked.returncode == 0 and tracked.stdout else list(ROOT.rglob('*'))
 for path in sorted(paths):
     rel = path.relative_to(ROOT)
@@ -41,7 +41,12 @@ for path in sorted(paths):
         continue
     for category, pattern in PATTERNS.items():
         for match in re.finditer(pattern, content):
-            findings.append({'path': rel.as_posix(), 'line': content.count('\n', 0, match.start()) + 1, 'category': category})
+            result = {'path': rel.as_posix(), 'line': content.count('\n', 0, match.start()) + 1, 'category': category}
+            if category == 'long-sensitive-literal' and rel.as_posix() == 'app/src/test/java/com/halo/expressassistant/hub/PddDiagnosticPayloadTest.kt' and 'SYNTHETIC_DIAGNOSTIC_REDACTION_SENTINEL' in match.group():
+                result['review'] = 'Explicit synthetic sentinel tests that diagnostics remove secret fields; not an actual credential.'
+                reviewed.append(result)
+            else:
+                findings.append(result)
     if rel.as_posix().startswith('app/'):
         for match in re.finditer(r'(?<![0-9])1[3-9][0-9]{9}(?![0-9])', content):
             result = {'path': rel.as_posix(), 'line': content.count('\n', 0, match.start()) + 1, 'category': 'phone-shaped-literal'}

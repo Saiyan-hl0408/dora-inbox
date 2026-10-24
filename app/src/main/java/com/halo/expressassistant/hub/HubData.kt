@@ -10,7 +10,7 @@ import kotlinx.serialization.json.Json
 
 object HubData {
     const val CHANGED = "com.songoku.parcelhub.CHANGED"
-    val channels = linkedMapOf("jd" to "京东", "taobao" to "淘宝", "pdd" to "拼多多")
+    val channels = linkedMapOf("jd" to "京东", "taobao" to "淘宝", "pdd" to "拼多多").apply {if(com.halo.expressassistant.BuildConfig.ENABLE_DOUYIN)put("douyin","抖音商城")}
     private val json = Json { ignoreUnknownKeys = true }
     fun prefs(context: Context) = context.getSharedPreferences("parcelhub", Context.MODE_PRIVATE)
     /** Legacy history choice wins over the formerly independent sync choice. */
@@ -40,19 +40,18 @@ object HubData {
         prefs(context).edit().putString("local_parcels", json.encodeToString(items)).apply()
         context.sendBroadcast(Intent(CHANGED).setPackage(context.packageName))
     }
-    fun items(context: Context): List<ExpressItem> {
-        val merged = LinkedHashMap<String, ExpressItem>()
-        Store.items(context).forEach { merged[it.mailNo.uppercase(java.util.Locale.ROOT)] = it }
+    fun items(context: Context, goods:Map<String,com.halo.expressassistant.data.JdGoods> = Store.jdGoods(context)): List<ExpressItem> {
+        val merged = ParcelGroups.items(Store.items(context)).toMutableList()
         local(context).forEach { item ->
-            val key=item.mailNo.uppercase(java.util.Locale.ROOT)
-            val old = merged[key]
-            merged[key] = if (old == null) item else old.copy(
+            val index=merged.indexOfFirst {it.mailNo.equals(item.mailNo,true)}
+            val old = merged.getOrNull(index)
+            val updated = if (old == null) item else old.copy(
                 pickupCode=item.pickupCode.ifBlank {old.pickupCode},
                 pickupCodeSource=if(item.pickupCode.isNotBlank())item.pickupCodeSource.ifBlank {"local"} else old.pickupCodeSource
             )
+            if(index<0)merged.add(updated) else merged[index]=updated
         }
-        val goods=Store.jdGoods(context)
-        return merged.values.filterNot {ParcelEligibility.isVirtual(it,goods[it.mailNo]?.name.orEmpty())}
+        return merged.filterNot {(!com.halo.expressassistant.BuildConfig.ENABLE_DOUYIN && it.source=="douyin") || ParcelEligibility.isVirtual(it,if(it.source=="pdd")it.originalName else goods[it.mailNo]?.name.orEmpty())}
     }
     fun collectedTimes(context: Context): Map<String, Long> {
         val times = runCatching { json.decodeFromString<Map<String,Long>>(prefs(context).getString("collected_times","{}").orEmpty()) }.getOrDefault(emptyMap()).toMutableMap()

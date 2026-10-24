@@ -111,9 +111,12 @@ class IdentityCodeActivity:AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     private fun createPage()=WebView(this).apply {
         settings.apply {javaScriptEnabled=true;domStorageEnabled=true;allowFileAccess=false;allowContentAccess=false;useWideViewPort=true;loadWithOverviewMode=true}
+        setBackgroundColor(android.graphics.Color.WHITE)
+        OfficialIdentityLayout.attach(this){expanded,height->if(this===web && verifyOwner() && IdentityWebPolicy.allowed(url.orEmpty(),"jd"))shell.updateOfficialLayout(expanded,height)}
+        shell.onCollapse={web?.let(OfficialIdentityLayout::collapse)}
         CookieManager.getInstance().setAcceptThirdPartyCookies(this,true)
         addOnLayoutChangeListener {view,_,_,_,_,_,_,_,_->
-            if(view===web && verifyOwner() && IdentityWebPolicy.allowed(url.orEmpty(),"jd") && !IdentityWebPolicy.loginPage(url.orEmpty(),"jd"))IdentityViewport.fitJd(this)
+            if(view===web && verifyOwner() && IdentityWebPolicy.allowed(url.orEmpty(),"jd") && !IdentityWebPolicy.loginPage(url.orEmpty(),"jd"))OfficialIdentityLayout.apply(this,"jd")
         }
         webViewClient=object:WebViewClient() {
             override fun shouldOverrideUrlLoading(view:WebView,request:WebResourceRequest):Boolean {
@@ -129,9 +132,9 @@ class IdentityCodeActivity:AppCompatActivity() {
             override fun onPageFinished(view:WebView,url:String) {
                 if(view!==web || !verifyOwner())return
                 shell.showReady()
-                shell.message.text=if(IdentityWebPolicy.loginPage(url,"jd"))"请在官方页面完成登录，或使用登录 / 恢复。" else "码由京东官方页面实时提供；未显示时可重新加载页面。"
+                if(IdentityWebPolicy.loginPage(url,"jd"))shell.message.text="请在官方页面完成登录"
                 shell.login.visibility=if(IdentityWebPolicy.loginPage(url,"jd"))View.VISIBLE else View.GONE
-                if(IdentityWebPolicy.allowed(url,"jd") && !IdentityWebPolicy.loginPage(url,"jd"))IdentityViewport.fitJd(view)
+                if(IdentityWebPolicy.allowed(url,"jd") && !IdentityWebPolicy.loginPage(url,"jd"))OfficialIdentityLayout.apply(view,"jd")
                 persistIfOwned()
             }
             override fun onReceivedError(view:WebView,request:WebResourceRequest,error:WebResourceError) {

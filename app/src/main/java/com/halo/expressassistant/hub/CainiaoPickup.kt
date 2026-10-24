@@ -9,7 +9,7 @@ object CainiaoPickup {
     const val ROOT = "$ORIGIN/wow/z/uniapp/1011717/last-mile-fe/end-collect-platform"
     const val SEARCH_URL = "$ROOT/school-search-ssr?openFrom=searchEnter&from=XY"
     const val PHONE_URL = "$ROOT/phone-manage-xy-ssr?from=XY"
-    // Public snapshot: no personal station. Configure an official station link in the app.
+    // Public source: configure an official station link; no personal station default.
     const val DEFAULT_STATION_CODE = ""
     fun pageUrl(stationCode:String,manage:Boolean=false):String = (if(manage)PHONE_URL else SEARCH_URL)+
         stationCode.takeIf {it.matches(Regex("[0-9]{1,20}"))}?.let {"&stationCode=$it"}.orEmpty()
@@ -26,6 +26,7 @@ object CainiaoPickup {
             item.mailNo.matches(Regex("[A-Za-z0-9]{8,32}")) && !item.mailNo.startsWith("ORDER-") &&
             (item.pickupCode.isBlank() || (item.source=="pdd" && (item.pickupCodeSource==PddPickupCodes.SOURCE || item.pickupCodeSource.startsWith("taobao-cainiao")))) && ParcelPresentation.stage(item)==ParcelPresentation.Stage.PICKUP
     fun candidate(item:ExpressItem,collected:Boolean=false)=canApply(item,collected) && !jdCarrier(item) &&
+        !(item.pddPickupServiceState=="PENDING" && item.pddPickupCode.isNotBlank()) &&
         !(item.pickupCode.isNotBlank() && item.pickupCodeSource.startsWith("taobao-cainiao"))
     fun mayAttempt(now:Long, retryAt:Long, sameStatus:Boolean)=!sameStatus || now>=retryAt
     fun fingerprint(item:ExpressItem)="${item.mailNo}|${ParcelPresentation.stage(item)}|${item.logisticsStatus}|${item.statusUpdatedAt}"
@@ -73,11 +74,12 @@ object CainiaoPickup {
             pickupVerificationNeeded=result.outcome==Outcome.VERIFY)
         if(result.outcome==Outcome.VERIFY)return checked.copy(pickupHint="菜鸟需要确认收件号码，请打开官方页面核验")
         if(result.outcome==Outcome.COLLECTED && item.source=="pdd")return checked.copy(pickupCode="",pickupCodeSource="",
-            historicalPickupCode=item.pickupCode.ifBlank {item.historicalPickupCode},pickupHint="菜鸟显示已取件，请核对官方包裹状态")
+            historicalPickupCode=item.pickupCode.ifBlank {item.historicalPickupCode},pickupHint="菜鸟显示已取件，请核对官方包裹状态",
+            pickupStation=result.station.ifBlank {item.pickupStation},pickupAddress=result.address.ifBlank {item.pickupAddress})
         if(result.outcome in setOf(Outcome.NO_CODE,Outcome.NO_MATCH) && item.source=="pdd")return checked.copy(
             pickupCode=fallback,pickupCodeSource=if(fallback.isNotBlank())PddPickupCodes.SOURCE else "",pickupHint="",
-            pickupStation=if(item.pickupCodeSource.startsWith("taobao-cainiao"))item.pddPickupStation else item.pickupStation,
-            pickupAddress=if(item.pickupCodeSource.startsWith("taobao-cainiao"))"" else item.pickupAddress)
+            pickupStation=result.station.ifBlank {if(fallback.isNotBlank())item.pddPickupStation.ifBlank {item.pickupStation} else item.pickupStation.ifBlank {item.pddPickupStation}},
+            pickupAddress=result.address.ifBlank {if(fallback.isNotBlank() && item.pddPickupStation.isNotBlank() && item.pddPickupStation!=item.pickupStation)"" else item.pickupAddress})
         if(result.outcome!=Outcome.FOUND)return checked.copy(pickupHint="")
         return checked.copy(pickupCode=result.code,pickupStation=result.station.ifBlank {item.pickupStation},
             pickupAddress=result.address.ifBlank {item.pickupAddress},pickupLocationVersion=1,

@@ -5,6 +5,8 @@ import com.halo.expressassistant.data.ExpressItem
 /** Shopping source is not the service that issued the current pickup code. */
 object PickupUiPolicy {
     fun identity(item:ExpressItem):String = when {
+        item.pddPickupServiceState in setOf("PENDING","COLLECTED") -> "pdd"
+        pddStation(item) -> "pdd"
         item.pickupCodeSource.startsWith("taobao-cainiao") -> "taobao"
         item.identityChannel=="cainiao" -> "taobao"
         item.identityChannel in setOf("jd","taobao","pdd") -> item.identityChannel
@@ -13,8 +15,12 @@ object PickupUiPolicy {
     }
     fun account(item:ExpressItem,service:String):String = when(service) {
         "taobao" -> item.pickupQueryAccountId.ifBlank {if(item.source=="taobao")item.accountId else ""}
-        "jd" -> if(item.source=="jd")item.accountId else item.pickupQueryAccountId
+        "jd" -> if(item.source=="jd")item.accountId else ""
         else -> if(item.source==service)item.accountId else ""
+    }
+    /** The lookup channel does not prove which identity code a shared station accepts. */
+    fun pddStation(item:ExpressItem):Boolean = listOf("多多买菜","多多代收","多多驿站","多多取快递","拼多多代收").any {
+        (item.pickupStation+" "+item.pddPickupStation).contains(it)
     }
     fun offerPdd(item:ExpressItem)=item.source=="pdd" && item.pickupCode.isBlank() &&
         ParcelPresentation.stage(item)==ParcelPresentation.Stage.PICKUP

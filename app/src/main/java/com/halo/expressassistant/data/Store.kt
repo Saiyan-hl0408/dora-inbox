@@ -61,22 +61,30 @@ object Store {
     private const val KEY_TB_ACCOUNTS = "tb_accounts"
     private const val KEY_PDD_ACCOUNTS = "pdd_accounts"
     private const val KEY_PDD_TRACES = "pdd_traces"
+    private const val KEY_PDD_NON_PARCEL = "pdd_non_parcel_order_keys"
     private const val KEY_JD_TRACES = "jd_traces"
     private const val KEY_TB_TRACES = "tb_traces"
     private const val KEY_POLL_MIN = "poll_interval_min"
 
-    /** 后台轮询间隔（分钟）。0 = 关闭轮询（默认不开启）；开启快递跟踪时自动设为 15 */
-    fun pollIntervalMin(context: Context): Int =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt(KEY_POLL_MIN, 0)
+    fun backgroundSyncEnabled(context:Context)=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getBoolean("background_sync_enabled",false)
+    fun backgroundSyncInterval(context:Context)=com.halo.expressassistant.hub.BackgroundSyncPolicy.interval(
+        context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getInt(KEY_POLL_MIN,15))
+    fun saveBackgroundSync(context:Context,enabled:Boolean,minutes:Int=backgroundSyncInterval(context)) {
+        context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit()
+            .putBoolean("background_sync_enabled",enabled)
+            .putInt(KEY_POLL_MIN,com.halo.expressassistant.hub.BackgroundSyncPolicy.interval(minutes)).apply()
+        com.halo.expressassistant.BackgroundSyncScheduler.configure(context)
+    }
+    /** Legacy callers share the explicit background switch; tracking never overrides an off choice. */
+    fun pollIntervalMin(context: Context): Int = if(backgroundSyncEnabled(context))backgroundSyncInterval(context) else 0
 
     fun savePollIntervalMin(context: Context, minutes: Int) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putInt(KEY_POLL_MIN, minutes.coerceIn(0, 720)).apply()
+        saveBackgroundSync(context,minutes>0,if(minutes>0)minutes else backgroundSyncInterval(context))
     }
 
     /** 开启跟踪时调用：若轮询从未来过（=0/未配置）则自动默认 15 分钟并开启 */
     fun ensurePollingDefault(context: Context) {
-        if (pollIntervalMin(context) <= 0) savePollIntervalMin(context, 15)
+        // Explicit user setting is authoritative. Marking a parcel tracked must not enable work.
     }
     private const val KEY_SHORT_OPT_V2 = "short_opt_v2"
 
@@ -88,7 +96,8 @@ object Store {
             ?: return seed().also { saveItems(context, it) }
         return try {
             val list = json.decodeFromString<List<ExpressItem>>(raw)
-            val clean = list.filterNot { it.mailNo.startsWith("FAKETEST") }
+            val excluded=prefs.getStringSet(KEY_PDD_NON_PARCEL,emptySet()).orEmpty()
+            val clean = list.filterNot { it.mailNo.startsWith("FAKETEST") }.filter {com.halo.expressassistant.hub.PddOrderBusiness.keep(it,excluded)}
             if (clean.size != list.size) saveItems(context, clean)
             clean
         } catch (e: Throwable) {
@@ -97,10 +106,30 @@ object Store {
     }
 
     fun saveItems(context: Context, items: List<ExpressItem>) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit {
-            putString(KEY_LIST, json.encodeToString(items))
+        val prefs=context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val excluded=prefs.getStringSet(KEY_PDD_NON_PARCEL,emptySet()).orEmpty()
+        prefs.edit {
+            putString(KEY_LIST, json.encodeToString(items.filter {com.halo.expressassistant.hub.PddOrderBusiness.keep(it,excluded)}))
         }
         com.halo.expressassistant.widget.ExpressWidgetProvider.updateAll(context)
+    }
+
+    /** Remember only IDs positively identified on the official list, scoped to their account.
+     * Keep a private recovery copy of previously misclassified rows; stale sync snapshots cannot resurrect them. */
+    @Synchronized fun excludePddNonParcelOrders(context:Context,accountId:String,orderIds:Set<String>):Int {
+        if(orderIds.isEmpty())return 0
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val previous=prefs.getStringSet(KEY_PDD_NON_PARCEL,emptySet()).orEmpty()
+        val added=orderIds.map {com.halo.expressassistant.hub.PddOrderBusiness.key(accountId,it)}.toSet()-previous
+        if(added.isEmpty())return 0
+        val existing=runCatching {json.decodeFromString<List<ExpressItem>>(prefs.getString(KEY_LIST,"[]").orEmpty())}.getOrDefault(emptyList())
+        val removed=existing.filterNot {com.halo.expressassistant.hub.PddOrderBusiness.keep(it,added)}
+        val archiveKey="pdd_non_parcel_order_archive"
+        val archive=runCatching {json.decodeFromString<List<ExpressItem>>(prefs.getString(archiveKey,"[]").orEmpty())}.getOrDefault(emptyList())
+        check(prefs.edit().putStringSet(KEY_PDD_NON_PARCEL,previous+added)
+            .putString(archiveKey,json.encodeToString((archive+removed).distinctBy {com.halo.expressassistant.hub.PddOrderBusiness.key(it.accountId,it.id)})).commit())
+        if(removed.isNotEmpty())saveItems(context,existing)
+        return added.size
     }
 
     fun seed(): List<ExpressItem> = emptyList()
@@ -236,7 +265,8 @@ object Store {
     const val CH_JD = "jd"
     const val CH_TAOBAO = "taobao"
     const val CH_PDD = "pdd"
-    val CHANNELS = listOf(CH_XIAOMI, CH_JD, CH_TAOBAO, CH_PDD)
+    const val CH_DOUYIN = "douyin"
+    val CHANNELS = listOf(CH_XIAOMI, CH_JD, CH_TAOBAO, CH_PDD, CH_DOUYIN)
 
     /** 小米登录凭证（payload 编解码） */
     @Serializable
@@ -541,22 +571,22 @@ object Store {
     fun pddCookies(context: Context): String =
         firstEnabledAccount(context, CH_PDD)?.let { cookieOf(it.payload) } ?: ""
 
-    fun addPddAccount(context: Context, cookies: String) {
-        // 去重：同账号（pdd_user_id 尾号）已存在 → 更新凭证而非重复新增
+    fun addPddAccount(context: Context, cookies: String):BoundAccount {
+        // Full account identity survives a custom display name; never deduplicate by label/tail.
         val label = "拼多多账号 · ${pddLabelOf(cookies)}"
-        val exists = accounts(context, CH_PDD).firstOrNull { it.label == label }
+        val exists = PddAccountBinding.findExisting(accounts(context,CH_PDD),cookies,::cookieOf)
         if (exists != null) {
-            updateAccount(context, CH_PDD, exists.copy(payload = cookiePayload(cookies), enabled = true))
-            return
+            val updated=exists.copy(payload = cookiePayload(cookies), enabled = true)
+            updateAccount(context, CH_PDD, updated)
+            return updated
         }
-        addAccount(
-            context, CH_PDD,
-            BoundAccount(
+        val account=BoundAccount(
                 id = java.util.UUID.randomUUID().toString(),
                 label = label,
                 payload = cookiePayload(cookies)
             )
-        )
+        addAccount(context,CH_PDD,account)
+        return account
     }
 
     /** 旧接口（兼容）：保存为第一个启用账号 */
@@ -856,6 +886,14 @@ object Store {
     }
 
     /* ─────────────── 拼多多轨迹缓存（始终保存；TTL 只决定「是否该重抓」） ─────────────── */
+
+    /** Preserve a private recovery copy before invalidating fix8's unbound trace cache. */
+    @Synchronized fun invalidatePddReadCache(context:Context) {
+        val prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE)
+        val editor=prefs.edit()
+        prefs.getString(KEY_PDD_TRACES,null)?.let {editor.putString("${KEY_PDD_TRACES}_before_fix9",it)}
+        check(editor.remove(KEY_PDD_TRACES).commit())
+    }
 
     /** 读取缓存轨迹（只要抓过就返回——**始终保存**，过期不影响展示） */
     fun pddTraces(context: Context, mailNo: String): List<DetailPoint>? {

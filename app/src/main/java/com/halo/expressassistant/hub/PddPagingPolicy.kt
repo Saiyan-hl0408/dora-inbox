@@ -27,8 +27,12 @@ object PddPagingPolicy {
     }
     fun refreshInScope(item:ExpressItem,since:Long,verifiedActiveTrace:Boolean,freshAwaitingReceipt:Boolean=false):Boolean {
         if(item.source!="pdd")return false
+        if(item.pddReadRepairRequired)return true
         val stage=ParcelPresentation.stage(item)
+        if(ActiveParcelRefresh.includes(item))return true
         val recent=maxOf(item.orderCreatedAt,ParcelTime.parse(item.latestTime))>=since
+        // A list checkpoint covers purchases, not later movement of an existing parcel.
+        if(stage in setOf(ParcelPresentation.Stage.PICKUP,ParcelPresentation.Stage.TRANSIT) && item.logisticsStatus.isNotBlank())return true
         if(freshAwaitingReceipt && (stage==ParcelPresentation.Stage.UNVERIFIED || (stage==ParcelPresentation.Stage.CLOSED && item.completedAt==0L)))return true
         if(item.logisticsStatus=="待取件" || item.logisticsStatus=="等待取件")return true
         if(stage==ParcelPresentation.Stage.CLOSED && (recent || item.completedAt>=since || item.orderCompletedAt>=since))

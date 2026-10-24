@@ -1,12 +1,13 @@
 package com.halo.expressassistant.ui
 
 import android.app.Activity
+import android.content.Context
 import com.halo.expressassistant.data.*
 import com.halo.expressassistant.hub.*
 
 object JdTrackFetcher {
     suspend fun fetch(act:Activity,item:ExpressItem):ExpressDetail=fetchWith(act,item,"")
-    suspend fun fetchWith(act:Activity,item:ExpressItem,jdCookies:String):ExpressDetail {
+    suspend fun fetchWith(act:Context,item:ExpressItem,jdCookies:String):ExpressDetail {
         require(!item.isOrderNumber){"旧版订单号无法作为京东物流运单查询，请同步京东物流账号"}
         val account=Store.accountForItem(act,item) ?: error("请先绑定京东物流账号")
         val result=JdlWebFetcher.fetch(act,account,item.mailNo)

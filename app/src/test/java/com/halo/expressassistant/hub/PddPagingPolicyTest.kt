@@ -7,8 +7,8 @@ import org.junit.Test
 class PddPagingPolicyTest {
     private val since=ParcelTime.parse("2026-09-09")
     private fun item(date:String)=ExpressItem("synthetic","","","TEST12345678",source="pdd",stateName="运输中",latestText="快件运输中",orderCreatedAt=ParcelTime.parse(date))
-    @Test fun oldUnverifiedListHintsDoNotRefreshEveryCachedOrder() {
-        assertFalse(PddPagingPolicy.refreshInScope(item("2025-01-01"),since,false))
+    @Test fun knownOldUnfinishedOrdersContinueOutsideThePurchaseBoundary() {
+        assertTrue(PddPagingPolicy.refreshInScope(item("2025-01-01"),since,false))
         assertTrue(PddPagingPolicy.refreshInScope(item("2026-10-01"),since,false))
     }
     @Test fun olderActuallyUnfinishedCachedParcelStillUpdatesIndividually() {

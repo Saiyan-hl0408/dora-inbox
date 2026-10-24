@@ -118,6 +118,7 @@
       const unfinished=new Set(config.refresh||[]);
       let activeListsComplete=true;
       function reusable(number,summary) {
+        if(unfinished.has(number))return false;
         const item=cached.get(number), base=summary?.baseOrderInfo;
         if(!item || !base || String(base.cusBaseInfo?.orderStatus)!==item.status)return false;
         const version=parseTime(base.lastOperatorTime), age=config.now-item.checkedAt;
@@ -212,7 +213,7 @@
         emit({type:'account_done',account:accountIndex+1,accounts:verified.length,complete:failures.length===before});
       }
       pass='refresh';
-      if(activeListsComplete)for(const number of config.refresh||[])if(!seen.has(number))await readDetail(number,{},null);
+      for(const number of config.refresh||[])if(!seen.has(number))await readDetail(number,{},null);
       finish();
     } catch(error) {emit(errorEvent(error));}
   };

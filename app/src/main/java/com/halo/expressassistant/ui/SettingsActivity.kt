@@ -77,7 +77,7 @@ class SettingsActivity : AppCompatActivity() {
         refreshButtons()
     }
 
-    /** 支持一下：展示微信源码版占位图（截图/长按保存即可） */
+    /** 支持一下：展示微信赞赏码（截图/长按保存即可） */
     private fun showSupportDialog() {
         MaterialAlertDialogBuilder(this)
             .setTitle("项目与商业授权")
