@@ -4,6 +4,7 @@
 
 ## 本轮通过
 
+- GitHub公开源码已同步，正式Release `v0.9.9-fix1`及4个附件已发布，旧版Release保留。未登录完整下载APK得到HTTP200、8,160,007字节，SHA-256与原交付包完全一致；仓库、更新说明、功能介绍、Release页面及四类核心配图均可公开访问。
 - 独立公开目录 `:app:assembleDebug :app:testDebugUnitTest` 通过，**417测试、0失败、0错误、0跳过**。最终合成诊断样例更新后重新编译并测试；未测试/安装真实账号。
 - 本机JDK21、SDK36、已有Gradle8.13和Maven缓存，使用公共构建脚本的显式SDK/JDK/Gradle/短临时目录参数。必要wrapper哈希保持官方8.13校验值。
 - 最新交付APK `dora-inbox-v0.9.9-fix1.apk`：8,160,007字节，SHA-256 `5adbe8ab23f86aa41f4548e8a71d261b3c585986b0bb3246ffc6a73cc9768260`。实际aapt/apksigner复核版本0.9.9、code30、包名com.songoku.parcelhub、min29/target36；签名验证有效且与旧版一致。没有重新构建或修改这个交付文件。

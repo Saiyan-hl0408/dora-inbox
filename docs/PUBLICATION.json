@@ -1,45 +1,67 @@
 {
-  "date": "2026-10-22",
+  "date": "2026-10-25",
   "repository": "https://github.com/Saiyan-hl0408/dora-inbox",
   "visibility": "public",
   "branch": "main",
-  "testedSourceSnapshotCommit": "6d67d0cbd614c9f437322409731ea88e8964df62",
-  "release": "https://github.com/Saiyan-hl0408/dora-inbox/releases/tag/v0.9.7-protected",
+  "testedSourceSnapshotCommit": "43110397715d184476d0930108f302c5637214d6",
+  "release": "https://github.com/Saiyan-hl0408/dora-inbox/releases/tag/v0.9.9-fix1",
   "releaseDraft": false,
   "apk": {
-    "name": "ParcelHub-v0.9.7-protected.apk",
-    "download": "https://github.com/Saiyan-hl0408/dora-inbox/releases/download/v0.9.7-protected/ParcelHub-v0.9.7-protected.apk",
-    "bytes": 7887482,
-    "sha256": "85c1235d6b273b693097ddc3d82bd8e3a378c6b3921523af645f505351111e5b",
-    "versionName": "0.9.7-personal-protected",
-    "versionCode": 27,
+    "name": "dora-inbox-v0.9.9-fix1.apk",
+    "download": "https://github.com/Saiyan-hl0408/dora-inbox/releases/download/v0.9.9-fix1/dora-inbox-v0.9.9-fix1.apk",
+    "bytes": 8160007,
+    "sha256": "5adbe8ab23f86aa41f4548e8a71d261b3c585986b0bb3246ffc6a73cc9768260",
+    "versionName": "0.9.9",
+    "versionCode": 30,
     "package": "com.songoku.parcelhub",
     "publicDownloadVerification": {
       "authenticated": false,
       "httpStatus": 200,
-      "completeStreamBytes": 7887482,
+      "completeStreamBytes": 8160007,
       "sha256MatchesOriginalAndUploadedArtifact": true
-    }
+    },
+    "signatureVerified": true,
+    "signerMatchesPreviousRelease": true,
+    "signerCertificateSha256": "db500a700469f3162be1c5fdc2bc5c30681a2c4587ddae318436ea940ac12023"
   },
   "otherReleaseAssets": [
     "SHA256SUMS.txt",
-    "ParcelHub-v0.9.7-third-party-licenses.zip"
+    "release-verification.json",
+    "dora-inbox-v0.9.9-fix1-third-party-licenses.zip"
   ],
   "sourceValidation": {
     "debugBuild": "passed",
-    "unitTests": 244,
+    "unitTests": 417,
     "failures": 0,
     "errors": 0,
     "skipped": 0,
     "privacyHeuristicUnresolvedFindings": 0,
     "originalSourceHashesUnchanged": true,
     "originalGitStatusUnchanged": true,
-    "coreMockupCategories": ["home", "logistics-detail", "identity", "my"]
+    "coreMockupCategories": [
+      "home",
+      "logistics-detail",
+      "identity",
+      "my"
+    ],
+    "provenanceInventoryFiles": 401,
+    "originalSourceFilesHashChecked": 405,
+    "publicRepositoryReleaseChangelogFeaturesAndFourMockupsAccessible": true
   },
   "boundaries": [
-    "Public source snapshot and old protected APK are different products, not byte-reproducible counterparts.",
+    "Public source snapshot and personal protected APK differ in package, assets, defaults and hardening; byte reproducibility is not promised.",
     "Commercial permission requirement applies only to project expression the licensor can authorize; upstream permissions remain.",
-    "No real-account or physical-device validation was performed in this publication task.",
+    "No real-account or physical-device validation was performed in this publication task; latest fix1 physical-device acceptance remains pending.",
+    "Core mockups are design examples, not runtime screenshots or device acceptance evidence.",
+    "Previous GitHub release is retained. The separately hosted old download site was not updated in this GitHub publication.",
     "No claim of complete originality, legal clean-room development, or technical prevention of infringement."
-  ]
+  ],
+  "previousSourceCommit": "d514b65f32abfb507eaeb7f767a158b2dfe708cc",
+  "previousRelease": "v0.9.7-protected",
+  "publicSource": {
+    "versionCode": 30,
+    "package": "com.songoku.parcelhub.source",
+    "formalDouyinEnabled": false,
+    "versionName": "0.9.9-source"
+  }
 }
